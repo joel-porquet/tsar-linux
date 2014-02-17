@@ -262,7 +262,7 @@ void __init mem_init(void)
 	 * section */
 
 	/* this will put all low memory onto the freelists */
-	totalram_pages += free_all_bootmem();
+	free_all_bootmem();
 
 	reservedpages = 0;
 	for (pfn = 0; pfn < max_low_pfn; pfn++) {
