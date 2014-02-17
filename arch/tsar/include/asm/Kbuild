@@ -37,6 +37,7 @@ generic-y += mutex.h # the suggested default (mutex_dec) seems good enough
 generic-y += param.h # seems good enough
 generic-y += pci.h # apparently we could even have an empty one (cf score)
 generic-y += percpu.h # good enough
+generic-y += preempt.h # good enough
 generic-y += resource.h  # seems good enough
 generic-y += scatterlist.h # good enough
 generic-y += sections.h # good enough
