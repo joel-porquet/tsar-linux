@@ -247,14 +247,11 @@ void __init paging_init(void)
 
 void __init mem_init(void)
 {
-	int codesize, datasize, bsssize, initsize, reservedpages;
-	unsigned long pfn;
-
 #ifdef CONFIG_FLATMEM
 	BUG_ON(!mem_map);
 #endif
 
-	max_mapnr = num_physpages = max_low_pfn;
+	max_mapnr = max_low_pfn;
 
 	high_memory = (void*)__va(max_low_pfn * PAGE_SIZE);
 
@@ -264,29 +261,7 @@ void __init mem_init(void)
 	/* this will put all low memory onto the freelists */
 	free_all_bootmem();
 
-	reservedpages = 0;
-	for (pfn = 0; pfn < max_low_pfn; pfn++) {
-		/* only count reserved RAM pages */
-		if (PageReserved(pfn_to_page(pfn)))
-			reservedpages++;
-	}
-
-	codesize = (unsigned long)_etext - (unsigned long)_stext;
-	datasize = (unsigned long)_edata - (unsigned long)_sdata;
-	bsssize = (unsigned long)__bss_stop - (unsigned long)__bss_start;
-	initsize = (unsigned long)__init_end - (unsigned long)__init_begin;
-
-	pr_info("Memory: %luk/%luk available (%dk kernel code, "
-			"%dk reserved, %dk data, %dk bss, %dk init, "
-			"%ldk highmem)\n",
-			nr_free_pages() << (PAGE_SHIFT - 10),
-			num_physpages << (PAGE_SHIFT - 10),
-			codesize >> 10,
-			reservedpages << (PAGE_SHIFT - 10),
-			datasize >> 10,
-			initsize >> 10,
-			bsssize >> 10,
-			0UL << (PAGE_SHIFT - 10));
+	mem_init_print_info(NULL);
 
 	pr_info("Virtual kernel memory layout:\n");
 	pr_cont("    fixmap  : 0x%08lx - 0x%08lx   (%4ld kB)\n",
