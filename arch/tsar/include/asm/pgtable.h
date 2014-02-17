@@ -296,9 +296,6 @@ static inline pte_t pte_modify(pte_t pte, pgprot_t newprot)
  */
 #define kern_addr_valid(addr)	(1) /* XXX: might need better support if not FLATMEM */
 
-#define io_remap_pfn_range(vma, vaddr, pfn, size, prot) \
-	remap_pfn_range(vma, vaddr, pfn, size, prot)
-
 #define pgtable_cache_init()	do {} while (0)
 
 extern void paging_init(void);
