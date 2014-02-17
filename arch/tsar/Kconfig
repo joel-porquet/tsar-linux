@@ -47,6 +47,8 @@ config GENERIC_CALIBRATE_DELAY
 
 source "init/Kconfig"
 
+source "kernel/Kconfig.freezer"
+
 menu "Processor/system type and features"
 
 #config SMP
