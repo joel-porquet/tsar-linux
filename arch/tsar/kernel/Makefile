@@ -1,0 +1,11 @@
+extra-y := head.o vmlinux.lds
+
+obj-y += devtree.o entry.o irq.o process.o ptrace.o reboot.o setup.o signal.o sys_call_table.o switch.o time.o tls.o traps.o
+
+obj-$(CONFIG_EARLY_PRINTK) += early_printk.o
+
+obj-$(CONFIG_SOCLIB_VCI_ICU) += vci_icu.o
+obj-$(CONFIG_SOCLIB_VCI_TIMER) += vci_timer.o
+obj-$(CONFIG_SOCLIB_VCI_IOC) += vci_ioc.o
+obj-$(CONFIG_SOCLIB_VCI_MTTY) += vci_mtty.o
+

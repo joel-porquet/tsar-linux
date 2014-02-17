@@ -1,0 +1,91 @@
+/dts-v1/;
+
+/ {
+	model = "UPMC/LIP6/SoC - Tsar v4 monocpu";
+	compatible = "tsar,monocpu_v4";
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	chosen {
+		/* bootargs = "earlycon=uart8250,mmio,0x00000000"; */
+		/* bootargs = "ignore_loglevel initcall_debug"; */
+		linux,stdout-path = &tty;
+	};
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		cache-type = <&cache>;
+		cpu@0 {
+			compatible = "soclib,mips32el";
+			reg = <0>;
+		};
+	};
+
+	cache: l1_cache_mmu {
+		compatible = "tsar,cc_vcache_v4";
+	};
+
+	cpuicu: cpuicu@0{
+		compatible = "soclib,mips32_icu";
+		interrupt-controller;
+		#interrupt-cells = <1>;
+	};
+
+	vci {
+		compatible = "soclib,vgmn", "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges; // identity mapping between root addressing and vci network
+
+		icu: icu@0x10000000 {
+			compatible = "soclib,vci_icu";
+			reg = <0x10000000 0x14>;
+
+			interrupt-controller;
+			#interrupt-cells = <1>;
+
+			interrupt-parent = <&cpuicu>;
+			interrupts = <2>; // interrupts 0 and 1 of cpuicu are softirqs
+		};
+
+		tty: tty@0x14000000 {
+			compatible = "soclib,vci_multi_tty";
+			reg = <0x14000000 0xc>;
+
+			interrupt-parent = <&icu>;
+			interrupts = <0>;
+		};
+
+		timer@0x18000000 {
+			compatible = "soclib,vci_timer";
+			reg = <0x18000000 0x10>;
+
+			clocks = <&freq>;
+
+			interrupt-parent = <&icu>;
+			interrupts = <1>;
+		};
+
+		blockdevice@0x1c000000 {
+			compatible = "tsar,vci_block_device_tsar_v4";
+			reg = <0x1c000000 0x20>;
+
+			interrupt-parent = <&icu>;
+			interrupts = <2>;
+		};
+
+		memory@0x00000000 {
+			device_type = "memory";
+			reg = <0x00000000 0x10000000>;
+		};
+	};
+
+	clocks {
+		freq: frequency {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <25000000>; // assumes a certain clock frequency
+		};
+	};
+};

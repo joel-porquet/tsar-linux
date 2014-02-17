@@ -1,0 +1,125 @@
+/*
+ * This file is subject to the terms and conditions of the GNU General Public
+ * License.  See the file "COPYING" in the main directory of this archive for
+ * more details.
+ *
+ * Copyright (C) 2013 Pierre and Marie Curie University
+ *  Joël Porquet <joel.porquet@lip6.fr>
+ */
+
+#include <linux/init.h>
+#include <linux/linkage.h>
+
+#include <asm/asmmacro.h>
+#include <asm/mips32c0_regs.h>
+#include <asm/mmuc2_regs.h>
+#include <asm/regdef.h>
+#include <asm/thread_info.h>
+
+#include <generated/asm-offsets.h>
+
+/* physical address */
+#define pa(X) ((X) - PAGE_OFFSET)
+
+__HEAD
+ENTRY(kernel_entry)
+
+	/*
+	 * zero CP0_STATUS: kernel mode, interrupts disabled
+	 */
+	mtc0	zero, CP0_STATUS
+
+#ifdef CONFIG_TSAR_SOCLIB
+	/* if we're on the simulation platform, deactivate iss debugging */
+	mtc0	zero, CP0_DEBUG
+#endif
+
+	/*
+	 * clear .bss segment
+	 */
+	la	t0, pa(__bss_start)
+	la	t1, pa(__bss_stop)
+	beq	t0, t1, 2f
+1:
+	sw	zero, (t0)
+	addiu	t0, 4
+	bne	t0, t1, 1b
+2:
+
+	/*
+	 * save bootup parameters before switching to VA
+	 */
+#if 0
+	/* TODO: we should be able to receive the device tree from the
+	 * bootloader here */
+	sw	a0, pa(boot_param0)
+	sw	a1, pa(boot_param1)
+	sw	a2, pa(boot_param2)
+	sw	a3, pa(boot_param3)
+#endif
+
+	/*
+	 * initialize page global directory
+	 *
+	 * map RAM from the start to the end of the kernel (_end):
+	 * - identity mapping at VA 0x0 for just after enabling the MMU (the
+	 *   mapping will be destroy later)
+	 * - regular mapping at VA PAGE_OFFSET
+	 *
+	 * mapping is done with big pages
+	 */
+
+sizeof_pgd_t = (1 << PGD_T_LOG2)
+page_pde_offset = (PAGE_OFFSET >> (PGDIR_SHIFT - PGD_T_LOG2))
+
+	la	t0, pa(swapper_pg_dir)
+	la	t1, pa(_end) + (PGDIR_SIZE - 1)	/* big page that follows _end */
+	srl	t1, PGDIR_SHIFT			/* finds the index of this big page */
+	sll	t1, PGD_T_LOG2
+	addu	t1, t1, t0
+	li	t2, __PAGE_KERNEL		/* default page properties */
+10:
+	sw	t2, (t0)			/* identity mapping */
+	sw	t2, page_pde_offset(t0)		/* regular mapping */
+	addu	t2, 1				/* next address mapping */
+	addiu	t0, sizeof_pgd_t		/* next PTE1 */
+	bne	t0, t1, 10b			/* until we reach the last big page */
+
+	/*
+	 * enable paging
+	 */
+
+mmu_mode_init = (MMU_MODE_INST_TLB | MMU_MODE_DATA_TLB | MMU_MODE_INST_CACHE | MMU_MODE_DATA_CACHE)
+ptpr_shift = (PTRS_PER_PGD_LOG2 + PGD_T_LOG2)
+
+	mtc2	$0, $10			/* sync all pending write operations */
+
+	la	t0, pa(swapper_pg_dir)
+	srl	t0, t0, ptpr_shift	/* pa(swapper_pg_dir) >> 13 */
+	mtc2	t0, $0			/* set PTPR (8KiB aligned) */
+
+	li	t0, mmu_mode_init	/* init mmu mode */
+	mtc2	t0, $1			/* enable MMU */
+
+	/* jump into VA space */
+	la	t0, va_jump		/* note we use VA address of symbol va_jump */
+	jr	t0
+va_jump:
+
+	/*
+	 * setup kernel stack
+	 */
+	la	$28, init_thread_union
+	/* set the sp after a full pt_regs */
+	li	sp, THREAD_SIZE - PT_SIZE
+	addu	sp, sp, $28
+
+	/* setup initial kstack */
+	/* note: current_thread_info_set[0] is already setup statically,
+	   important: assert(current_cpu == 0)! */
+	sw	sp, TI_KSP($28)
+
+	/* start linux! */
+	j	start_kernel
+
+ENDPROC(kernel_entry)
