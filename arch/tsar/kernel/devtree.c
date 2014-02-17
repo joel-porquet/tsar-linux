@@ -40,9 +40,9 @@ int __init early_init_dt_scan_model(unsigned long node,	const char *uname,
 }
 
 #ifdef CONFIG_BLK_DEV_INITRD
-void __init early_init_dt_setup_initrd_arch(unsigned long start, unsigned long end)
+void __init early_init_dt_setup_initrd_arch(u64 start, u64 end)
 {
-	pr_err("%s(%lx, %lx)\n", __func__, start, end);
+	pr_err("%s(%llx, %llx)\n", __func__, start, end);
 }
 #endif
 
