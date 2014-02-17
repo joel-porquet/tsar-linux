@@ -124,7 +124,7 @@ void __init setup_arch(char **cmdline_p)
 	resource_init();
 
 	/* finish parsing the device tree */
-	tsar_device_tree_init();
+	unflatten_and_copy_device_tree();
 
 	/* give boot_command_line back to init/main.c */
 	*cmdline_p = boot_command_line;

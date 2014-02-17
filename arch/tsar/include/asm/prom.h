@@ -4,7 +4,6 @@
 #define HAVE_ARCH_DEVTREE_FIXUPS
 
 extern void tsar_device_tree_early_init(void);
-extern void tsar_device_tree_init(void);
 
 #ifdef CONFIG_EARLY_PRINTK
 extern phys_addr_t of_early_console(void);

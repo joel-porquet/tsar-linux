@@ -123,31 +123,6 @@ void __init tsar_device_tree_early_init(void)
 	early_init_devtree(bph);
 }
 
-void __init tsar_device_tree_init(void)
-{
-	void *dtb_copy;
-	unsigned long size;
-
-	if (!initial_boot_params)
-		return;
-
-	/* copy the DTB out of .init (unflatten_device_tree doesn't copy
-	 * strings) */
-	size = be32_to_cpu(initial_boot_params->totalsize);
-	dtb_copy = early_init_dt_alloc_memory_arch(size, SMP_CACHE_BYTES);
-
-	if (dtb_copy) {
-		memcpy(dtb_copy, initial_boot_params, size);
-		initial_boot_params = dtb_copy;
-	} else {
-		pr_err("Not enough memory to copy Device Tree Blob");
-		return;
-	}
-
-	/* now, it's good to unflatten it */
-	unflatten_device_tree();
-}
-
 int __init tsar_device_probe(void)
 {
 	if (!of_have_populated_dt())
