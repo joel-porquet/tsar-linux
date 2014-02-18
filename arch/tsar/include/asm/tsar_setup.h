@@ -9,6 +9,8 @@
 
 #ifdef CONFIG_EARLY_PRINTK
 extern void early_printk_init(void);
+#else
+static inline void early_printk_init(void) {}
 #endif
 
 extern void tsar_memory_init(void);

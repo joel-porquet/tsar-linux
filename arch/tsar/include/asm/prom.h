@@ -3,7 +3,7 @@
 
 #define HAVE_ARCH_DEVTREE_FIXUPS
 
-extern void tsar_device_tree_early_init(void);
+extern struct boot_param_header __dtb_start; /* defined by Linux */
 
 #ifdef CONFIG_EARLY_PRINTK
 extern phys_addr_t of_early_console(void);

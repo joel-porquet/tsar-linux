@@ -98,16 +98,14 @@ void __init setup_arch(char **cmdline_p)
 	 * - memory banks (meminfo structure)
 	 * - bootargs (boot_command_line definition)
 	 */
-	tsar_device_tree_early_init();
+	early_init_devtree(&__dtb_start);
 
 	/* make it possible to have virtual mappings before memory and proper
 	 * ioremap are up: necessary for earlyprintk and/or earlycon */
 	ioremap_fixed_early_init();
 
-#ifdef CONFIG_EARLY_PRINTK
 	/* use tty as an early console */
 	early_printk_init();
-#endif
 
 	/* parse early param of boot_command_line,
 	 * such as 'earlycon' for example */

@@ -91,36 +91,13 @@ phys_addr_t __init of_early_console()
 
 void __init early_init_devtree(void *params)
 {
-	/* setup internal pointer on device tree blob */
-	initial_boot_params = params;
-
-	/* retrieve various information from the /chosen node of the
-	 * device-tree, especially bootargs
-	 */
-	of_scan_flat_dt(early_init_dt_scan_chosen, boot_command_line);
-
-
-	/* scan memory nodes */
-	of_scan_flat_dt(early_init_dt_scan_root, NULL);
-	of_scan_flat_dt(early_init_dt_scan_memory_arch, NULL);
-
-	/* get and display machine model */
-	of_scan_flat_dt(early_init_dt_scan_model, NULL);
-}
-
-extern struct boot_param_header __dtb_start; /* defined by Linux */
-
-void __init tsar_device_tree_early_init(void)
-{
-	struct boot_param_header *bph = &__dtb_start;
-
-	if (be32_to_cpu(bph->magic) != OF_DT_HEADER)
-	{
-		pr_err("DTB has bad magic value, ignoring builtin DTB\n");
+	if (!early_init_dt_scan(params)) {
+		pr_err("Scanning DTB failed!\n");
 		return;
 	}
 
-	early_init_devtree(bph);
+	/* get and display machine model */
+	of_scan_flat_dt(early_init_dt_scan_model, NULL);
 }
 
 int __init tsar_device_probe(void)
