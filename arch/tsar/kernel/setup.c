@@ -16,7 +16,6 @@
 
 #include <asm/io.h>
 #include <asm/meminfo.h>
-#include <asm/prom.h>
 #include <asm/sections.h>
 #include <asm/tsar_setup.h>
 
@@ -25,6 +24,9 @@ struct meminfo meminfo;
 static struct resource kernel_code_resource = { .name = "Kernel code", };
 static struct resource kernel_data_resource = { .name = "Kernel data", };
 static struct resource kernel_bss_resource = { .name = "Kernel bss", };
+
+extern struct boot_param_header __dtb_start; /* defined by Linux */
+void *dtb_start = &__dtb_start;
 
 int __init meminfo_add_membank(phys_addr_t start, phys_addr_t size)
 {
@@ -98,7 +100,7 @@ void __init setup_arch(char **cmdline_p)
 	 * - memory banks (meminfo structure)
 	 * - bootargs (boot_command_line definition)
 	 */
-	early_init_devtree(&__dtb_start);
+	early_init_devtree(dtb_start);
 
 	/* make it possible to have virtual mappings before memory and proper
 	 * ioremap are up: necessary for earlyprintk and/or earlycon */

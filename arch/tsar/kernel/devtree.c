@@ -7,7 +7,6 @@
 
 #include <asm/meminfo.h>
 #include <asm/page.h>
-#include <asm/prom.h>
 
 int __init early_init_dt_scan_memory_arch(unsigned long node,
 		const char *uname, int depth,

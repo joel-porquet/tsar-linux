@@ -8,6 +8,7 @@
  */
 
 #ifdef CONFIG_EARLY_PRINTK
+extern phys_addr_t of_early_console(void);
 extern void early_printk_init(void);
 #else
 static inline void early_printk_init(void) {}

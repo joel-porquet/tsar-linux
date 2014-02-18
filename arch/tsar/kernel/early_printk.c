@@ -11,7 +11,7 @@
 #include <linux/types.h>
 
 #include <asm/io.h>
-#include <asm/prom.h>
+#include <asm/tsar_setup.h>
 
 static void __iomem *vci_tty_virt_base;
 
