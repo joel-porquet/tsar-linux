@@ -11,6 +11,7 @@
 #include <linux/ioport.h>
 #include <linux/memblock.h>
 #include <linux/mm.h>
+#include <linux/of_fdt.h>
 #include <linux/printk.h>
 #include <linux/seq_file.h>
 
