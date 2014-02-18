@@ -7,6 +7,7 @@
 
 #include <asm/meminfo.h>
 #include <asm/page.h>
+#include <asm/tsar_setup.h>
 
 int __init early_init_dt_scan_memory_arch(unsigned long node,
 		const char *uname, int depth,
@@ -75,7 +76,7 @@ static int __init early_init_dt_scan_chosen_tty(unsigned long node, const char *
 
 /* this function returns the physical address of the tty, to allow for early
  * prink, according to the "chosen" node */
-phys_addr_t __init of_early_console()
+phys_addr_t __init of_early_console(void)
 {
 	return of_scan_flat_dt(early_init_dt_scan_chosen_tty, NULL);
 }
