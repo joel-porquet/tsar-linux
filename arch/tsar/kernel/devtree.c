@@ -34,13 +34,6 @@ int __init early_init_dt_scan_model(unsigned long node,	const char *uname,
 	return 0;
 }
 
-#ifdef CONFIG_BLK_DEV_INITRD
-void __init early_init_dt_setup_initrd_arch(u64 start, u64 end)
-{
-	pr_err("%s(%llx, %llx)\n", __func__, start, end);
-}
-#endif
-
 #ifdef CONFIG_EARLY_PRINTK
 static char *stdout_path __initdata;
 
