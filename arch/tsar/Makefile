@@ -30,6 +30,7 @@ cflags-y += -msoft-float
 
 KBUILD_AFLAGS += $(cflags-y)
 KBUILD_CFLAGS += $(cflags-y)
+KBUILD_CFLAGS += -D__linux__
 KBUILD_AFLAGS_MODULE += -mlong-calls
 KBUILD_CFLAGS_MODULE += -mlong-calls
 
