@@ -56,6 +56,7 @@ generic-y += trace_clock.h # everybody has it
 generic-y += unaligned.h # seems enough for now
 generic-y += ucontext.h # seems enough for now
 generic-y += user.h # apparently doesn't apply for us (it's for a.out)
+generic-y += vga.h # seems fine
 generic-y += xor.h # seems fine
 
 # exported from uapi/asm-generic
