@@ -1,6 +1,8 @@
 #ifndef _ASM_TSAR_PGALLOC_H
 #define _ASM_TSAR_PGALLOC_H
 
+#include <linux/highmem.h>
+
 #include <asm/page.h>
 #include <asm/pgtable.h>
 #include <asm/tlb.h>
@@ -44,13 +46,11 @@ static inline void pgd_free(struct mm_struct *mm, pgd_t *pgd)
  * allocate one PTE table
  */
 
-#define PGALLOC_GFP GFP_KERNEL | __GFP_NOTRACK | __GFP_REPEAT | __GFP_ZERO
-
 static inline pte_t *pte_alloc_one_kernel(struct mm_struct *mm, unsigned long address)
 {
 	pte_t *pte;
 
-	pte = (pte_t*) __get_free_page(PGALLOC_GFP);
+	pte = (pte_t*) __get_free_page(GFP_KERNEL | __GFP_REPEAT | __GFP_ZERO);
 
 	return pte;
 }
@@ -58,9 +58,13 @@ static inline pte_t *pte_alloc_one_kernel(struct mm_struct *mm, unsigned long ad
 static inline pgtable_t pte_alloc_one(struct mm_struct *mm, unsigned long address)
 {
 	struct page *pte;
-	pte = alloc_pages(PGALLOC_GFP, 0);
-	if (pte) {
-		pgtable_page_ctor(pte);
+	pte = alloc_pages(GFP_KERNEL | __GFP_REPEAT, 0);
+	if (!pte)
+		return NULL;
+	clear_highpage(pte);
+	if (!pgtable_page_ctor(pte)) {
+		__free_page(pte);
+		return NULL;
 	}
 	return pte;
 }
