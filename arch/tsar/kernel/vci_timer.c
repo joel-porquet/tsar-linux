@@ -94,8 +94,6 @@ static struct clock_event_device vci_timer_clockevent = {
 static struct irqaction vci_timer_irq = {
 	.name		= "vci_timer",
 	.flags		= IRQF_TIMER,
-	/* everybody also defines IRQF_DISABLED but it's supposed to be
-	 * deprecated... */
 	.handler	= vci_timer_interrupt,
 	.dev_id		= &vci_timer_clockevent,
 };
