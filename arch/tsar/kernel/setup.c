@@ -7,6 +7,7 @@
  *  Joël Porquet <joel.porquet@lip6.fr>
  */
 
+#include <linux/console.h>
 #include <linux/init.h>
 #include <linux/ioport.h>
 #include <linux/memblock.h>
@@ -129,6 +130,11 @@ void __init setup_arch(char **cmdline_p)
 
 	/* give boot_command_line back to init/main.c */
 	*cmdline_p = boot_command_line;
+
+	/* configure a virtual terminal */
+#if defined(CONFIG_VT)
+	conswitchp = &dummy_con;
+#endif
 }
 
 static int show_cpuinfo(struct seq_file *m, void *v)
