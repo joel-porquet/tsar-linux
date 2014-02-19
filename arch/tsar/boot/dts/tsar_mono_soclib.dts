@@ -7,8 +7,18 @@
 	#size-cells = <1>;
 
 	chosen {
+		/* the day we have a uart8250 compatible component, we can use
+		 * the earlycon param to get earlyprintk */
 		/* bootargs = "earlycon=uart8250,mmio,0x00000000"; */
+
+		/* this is for maximum debug */
 		/* bootargs = "ignore_loglevel initcall_debug"; */
+
+		/* display console in both framebuffer and tty (the last one
+		 * becomes the default one) */
+		/* bootargs = "console=tty0 console=ttyVTTY0"; */
+
+		/* default peripheral to use when configuring earlyprintk */
 		linux,stdout-path = &tty;
 	};
 
