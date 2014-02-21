@@ -1,4 +1,8 @@
 
+lib-y += memcpy.o
+lib-y += memmove.o
+lib-y += memset.o
+
 lib-y += delay.o
 
 lib-y += ashldi3.o

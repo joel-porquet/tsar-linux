@@ -47,7 +47,6 @@ generic-y += siginfo.h # seems good enough
 generic-y += signal.h # let's say it's ok for now
 #generic-y += spinlock.h # XXX: the day we have smp, we should redefine this one
 generic-y += statfs.h # good enough
-generic-y += string.h # XXX: let's use the generic for now, but should redefine later
 generic-y += swab.h # XXX: the day we have the inst wsbh, we should define that header
 generic-y += termios.h # seems good enough
 generic-y += timex.h # no time for now
