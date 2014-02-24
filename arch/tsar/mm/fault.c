@@ -97,7 +97,7 @@ retry:
 		 * if we're within a page from usp, but that might be
 		 * enough to catch brutal errors at least.
 		 */
-		if (address + PAGE_SIZE < regs->regs[29])
+		if (address + PAGE_SIZE < user_stack_pointer(regs))
 			goto bad_area;
 	}
 	if (expand_stack(vma, address))
@@ -203,9 +203,9 @@ no_context:
 	{
 		const struct exception_table_entry *entry;
 
-		if ((entry = search_exception_tables(regs->cp0_epc)) != NULL) {
+		if ((entry = search_exception_tables(instruction_pointer(regs))) != NULL) {
 			/* Adjust the instruction pointer in the stackframe */
-			regs->cp0_epc = entry->fixup;
+			instruction_pointer_set(regs, entry->fixup);
 			return;
 		}
 	}
