@@ -7,6 +7,4 @@
 
 #include <asm-generic/uaccess.h>
 
-extern int fixup_exception(struct pt_regs *regs);
-
 #endif /* _ASM_TSAR_UACCESS_H */
