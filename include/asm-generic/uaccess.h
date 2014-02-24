@@ -272,6 +272,7 @@ static inline long copy_to_user(void __user *to,
 		return n;
 }
 
+#ifndef CONFIG_GENERIC_STRNCPY_FROM_USER
 /*
  * Copy a null terminated string from userspace.
  */
@@ -294,7 +295,9 @@ strncpy_from_user(char *dst, const char __user *src, long count)
 		return -EFAULT;
 	return __strncpy_from_user(dst, src, count);
 }
+#endif
 
+#ifndef CONFIG_GENERIC_STRNLEN_USER
 /*
  * Return the size of a string (including the ending 0)
  *
@@ -320,6 +323,7 @@ static inline long strlen_user(const char __user *src)
 {
 	return strnlen_user(src, 32767);
 }
+#endif
 
 /*
  * Zero Userspace
