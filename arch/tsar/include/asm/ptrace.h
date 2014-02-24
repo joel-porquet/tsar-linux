@@ -43,11 +43,8 @@ struct pt_regs {
 	unsigned long cp0_cause;
 } __aligned(L1_CACHE_BYTES);
 
-#define user_mode(_regs) \
-	(((_regs)->cp0_status & ST0_KSU) == ST0_KSU_USER)
-
-#define instruction_pointer(_regs)	((_regs)->cp0_epc)
-#define user_stack_pointer(_regs)	((_regs)->regs[29])
+#define user_mode(regs) \
+	(((regs)->cp0_status & ST0_KSU) == ST0_KSU_USER)
 
 /*
  * redefine current_pt_regs() to be faster
@@ -57,6 +54,12 @@ struct pt_regs {
 	 unsigned long sp = (unsigned long)__builtin_frame_address(0); \
 	 (struct pt_regs *)((sp | (THREAD_SIZE - 1)) + 1) - 1;         \
  })
+
+#define GET_IP(regs)	((regs)->cp0_epc)
+#define GET_USP(regs)	((regs)->regs[29])
+#define GET_FP(regs)	((regs)->regs[30])
+
+#include <asm-generic/ptrace.h>
 
 #endif /* __ASSEMBLY__ */
 
