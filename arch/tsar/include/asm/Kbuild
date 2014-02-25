@@ -1,7 +1,6 @@
 generic-y += atomic.h # XXX: can use the generic version as long as !SMP
 generic-y += auxvec.h # empty
 generic-y += barrier.h # XXX: to be changed when SMP
-generic-y += bitops.h # good for now, but should redefine it using asm
 generic-y += bitsperlong.h
 generic-y += bug.h # XXX: use generic for now, maybe redefine later
 generic-y += bugs.h # empty (should fill it if tsar has bugs)
