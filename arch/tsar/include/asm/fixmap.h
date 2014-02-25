@@ -1,5 +1,5 @@
-#ifndef __ASM_TSAR_FIXMAP_H
-#define __ASM_TSAR_FIXMAP_H
+#ifndef _ASM_TSAR_FIXMAP_H
+#define _ASM_TSAR_FIXMAP_H
 
 #ifndef __ASSEMBLY__
 
@@ -50,4 +50,4 @@ static inline unsigned long virt_to_fix(const unsigned long vaddr)
 }
 
 #endif /* __ASSEMBLY__ */
-#endif /* __ASM_TSAR_FIXMAP_H */
+#endif /* _ASM_TSAR_FIXMAP_H */

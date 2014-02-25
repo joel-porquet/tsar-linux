@@ -1,5 +1,5 @@
-#ifndef __ASM_LIBGCC_H
-#define __ASM_LIBGCC_H
+#ifndef _ASM_LIBGCC_H
+#define _ASM_LIBGCC_H
 
 #include <asm/byteorder.h>
 
@@ -14,4 +14,4 @@ typedef union {
 	long long ll;
 } DWunion;
 
-#endif /* __ASM_LIBGCC_H */
+#endif /* _ASM_LIBGCC_H */

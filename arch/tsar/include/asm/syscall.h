@@ -7,8 +7,8 @@
  *  Joël Porquet <joel.porquet@lip6.fr>
  */
 
-#ifndef __ASM_TSAR_SYSCALL_H
-#define __ASM_TSAR_SYSCALL_H
+#ifndef _ASM_TSAR_SYSCALL_H
+#define _ASM_TSAR_SYSCALL_H
 
 static inline int
 syscall_get_nr(struct task_struct *task, struct pt_regs *regs)
@@ -60,4 +60,4 @@ syscall_set_arguments(struct task_struct *task, struct pt_regs *regs,
 	memcpy(&regs->regs[4 + i], args, n * sizeof(args[0]));
 }
 
-#endif /* __ASM_TSAR_SYSCALL_H */
+#endif /* _ASM_TSAR_SYSCALL_H */
