@@ -9,6 +9,8 @@ config TSAR
 	select GENERIC_IRQ_SHOW
 	select GENERIC_IOMAP
 	select GENERIC_SMP_IDLE_THREAD
+	select GENERIC_STRNCPY_FROM_USER
+	select GENERIC_STRNLEN_USER
 	#select HAVE_ARCH_JUMP_LABEL # should we implement this? see "mips/kernel/jump_label.c"
 	select HAVE_ARCH_TRACEHOOK # user_regset_view API in ptrace
 	select HAVE_MEMBLOCK

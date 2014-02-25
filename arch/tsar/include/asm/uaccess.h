@@ -180,6 +180,19 @@ __clear_user(void __user *to, unsigned long n);
 #define __clear_user __clear_user
 
 
+/*
+ * Declare the prototypes for strncpy_from_user, strnlen_user and strlen_user
+ */
+
+extern __must_check long
+strncpy_from_user(char *dst, const char __user *src, long count);
+
+extern __must_check long
+strnlen_user(const char __user *src, long n);
+extern __must_check long
+strlen_user(const char __user *src);
+
+
 #include <asm-generic/uaccess.h>
 
 #endif /* _ASM_TSAR_UACCESS_H */
