@@ -2,21 +2,40 @@
 #define _ASM_TSAR_UACCESS_H
 
 #include <linux/compiler.h>
+#include <linux/stddef.h>
+#include <linux/types.h>
+
+/* address space upper limit of the current thread */
+#define user_addr_max() (get_fs().seg)
 
 /*
  * Define arch-specific __access_ok(), as suggested by asm-generic.
  *
- * It must decide when an access, specified by an address and a size, is legit.
- * When in a kthread (i.e. fs() is KERNEL_DS), then the whole address space is
- * accessible. When in a user process (i.e. fs() is USER_DS), confront the
- * range to the addr_limit of the process.
+ * Checks if a block of memory is a valid user space address.
  */
 
-#define __kernel_ok		(segment_eq(get_fs(), KERNEL_DS))
-#define __user_ok(addr, size)	(((size) <= get_fs().seg) && \
-				((addr) <= (get_fs().seg - (size))))
-#define __access_ok(addr, size)	(unlikely(__kernel_ok) || \
-				likely(__user_ok((addr), (size))))
+/* taken from x86 */
+static inline bool
+__range_not_ok(unsigned long addr, unsigned long size, unsigned long limit)
+{
+	/* If we have used "sizeof()" for the size,
+	 * we know it won't overflow the limit (but
+	 * it might overflow the 'addr', so it's
+	 * important to subtract the size from the
+	 * limit, not add it to the address).
+	 */
+	if (__builtin_constant_p(size))
+		return (addr > (limit - size));
+
+	/* be careful about overflow */
+	addr += size;
+	if (addr < size)
+		return true;
+	return addr > limit;
+}
+
+#define __access_ok(addr, size) \
+	likely(!__range_not_ok(addr, size, user_addr_max()))
 
 
 /*
