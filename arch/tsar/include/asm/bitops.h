@@ -7,6 +7,11 @@
 
 #include <asm/barrier.h>
 
+#ifndef smp_mb__before_clear_bit
+#define smp_mb__before_clear_bit()	smp_mb()
+#define smp_mb__after_clear_bit()	smp_mb()
+#endif
+
 /*
  * For certain bitops, we can provide optimized asm routines:
  * - __ffs, fls, __fls, ffs
