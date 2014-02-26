@@ -5,6 +5,8 @@
 #error only <linux/bitops.h> can be included directly
 #endif
 
+#include <linux/compiler.h>
+
 #include <asm/barrier.h>
 
 #ifndef smp_mb__before_clear_bit
