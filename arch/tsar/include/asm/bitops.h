@@ -9,19 +9,118 @@
 
 #include <asm/barrier.h>
 
-#ifndef smp_mb__before_clear_bit
-#define smp_mb__before_clear_bit()	smp_mb()
-#define smp_mb__after_clear_bit()	smp_mb()
-#endif
+/* clear_bit can be used for locking purpose:
+ * - we need to execute a hardware sync before to commit the pending writes to
+ *   memory
+ * - clear_bit is performed with ll/sc, and sc is visible immediately so we
+ *   just need a compiler barrier after it
+ */
+#define smp_mb__before_clear_bit()	smp_mb__before_llsc()
+#define smp_mb__after_clear_bit()	smp_mb__after_llsc()
 
 /*
  * For certain bitops, we can provide optimized asm routines:
- * - __ffs, fls, __fls, ffs
- * - test_and_set_bit, test_and_clear_bit, test_and_change_bit
  * - set_bit, clear_bit, change_bit
+ * - test_and_set_bit, test_and_clear_bit, test_and_change_bit
+ * - __ffs, fls, __fls, ffs
  *
  * Mostly adapted from MIPS support
  */
+
+/*
+ * #include <asm-generic/bitops/atomic.h>
+ */
+
+/*
+ * Bitop functions: set_bit, clear_bit and change_bit
+ */
+
+#define DEFINE_BITOP(fn, op)                                 \
+static inline void __tsar_##fn(unsigned long mask,           \
+		volatile unsigned long *_p)                  \
+{                                                            \
+	unsigned long tmp;                                   \
+	unsigned long *p = (unsigned long *) _p;             \
+	__asm__ __volatile(                                  \
+			".set push			\n"  \
+			".set noreorder			\n"  \
+			"1:	ll	%[tmp], %[mem]	\n"  \
+			"	" #op "	%[tmp], %[mask]	\n"  \
+			"	sc	%[tmp], %[mem]	\n"  \
+			".set pop			\n"  \
+			"	beqz	%[tmp], 1b	\n"  \
+			: [tmp] "=&r" (tmp), [mem] "+m" (*p) \
+			: [mask] "r" (mask)                  \
+			: "memory");                         \
+}
+
+DEFINE_BITOP(set_bit, or);
+DEFINE_BITOP(clear_bit, and);
+DEFINE_BITOP(change_bit, xor);
+
+static inline void set_bit(int nr, volatile unsigned long *addr)
+{
+	__tsar_set_bit(BIT_MASK(nr), addr + BIT_WORD(nr));
+}
+
+static inline void clear_bit(int nr, volatile unsigned long *addr)
+{
+	__tsar_clear_bit(~BIT_MASK(nr), addr + BIT_WORD(nr));
+}
+
+static inline void change_bit(int nr, volatile unsigned long *addr)
+{
+	__tsar_change_bit(BIT_MASK(nr), addr + BIT_WORD(nr));
+}
+
+/*
+ * Testop functions: test_and_set_bit, test_and_clear_bit, test_and_change_bit
+ */
+
+#define DEFINE_TESTOP(fn, op)                                       \
+static inline unsigned long __tsar_##fn(unsigned long mask,         \
+		volatile unsigned long *_p)                         \
+{                                                                   \
+	unsigned long old, res;                                     \
+	unsigned long *p = (unsigned long *) _p;                    \
+	smp_mb__before_llsc();                                      \
+	__asm__ __volatile(                                         \
+			".set push				\n" \
+			".set noreorder				\n" \
+			"1:	ll	%[old], %[mem]		\n" \
+			"	" #op "	%[res], %[old], %[mask]	\n" \
+			"	sc	%[res], %[mem]		\n" \
+			".set pop				\n" \
+			"	beqz	%[res], 1b		\n" \
+			: [old] "=&r" (old), [res] "=&r" (res),     \
+			[mem] "+m" (*p)                             \
+			: [mask] "r" (mask)                         \
+			: "memory");                                \
+	smp_mb__after_llsc();                                       \
+	return old;                                                 \
+}
+
+DEFINE_TESTOP(test_and_set_bit, or);
+DEFINE_TESTOP(test_and_clear_bit, and);
+DEFINE_TESTOP(test_and_change_bit, xor);
+
+static inline int test_and_set_bit(int nr, volatile unsigned long *addr)
+{
+	unsigned long old = __tsar_test_and_set_bit(BIT_MASK(nr), addr + BIT_WORD(nr));
+	return (old & BIT_MASK(nr)) != 0;
+}
+
+static inline int test_and_clear_bit(int nr, volatile unsigned long *addr)
+{
+	unsigned long old = __tsar_test_and_clear_bit(~BIT_MASK(nr), addr + BIT_WORD(nr));
+	return (old & BIT_MASK(nr)) != 0;
+}
+
+static inline int test_and_change_bit(int nr, volatile unsigned long *addr)
+{
+	unsigned long old = __tsar_test_and_change_bit(BIT_MASK(nr), addr + BIT_WORD(nr));
+	return (old & BIT_MASK(nr)) != 0;
+}
 
 /*
  * #include <asm-generic/bitops/__fls.h>
@@ -66,103 +165,6 @@ static inline int ffs(int word)
 	if (!word)
 		return 0;
 	return fls(word & -word);
-}
-
-/*
- * #include <asm-generic/bitops/atomic.h>
- */
-static inline int test_and_set_bit(int nr, volatile unsigned long *addr)
-{
-	unsigned long mask = BIT_MASK(nr);
-	unsigned long *p = ((unsigned long *)addr) + BIT_WORD(nr);
-	unsigned long old, res;
-
-	smp_mb();
-
-	__asm__ __volatile__(
-			".set push				\n"
-			".set noreorder				\n"
-			"1:	ll	%[old], %[mem]		\n"
-			"	or	%[res], %[old], %[mask]	\n"
-			"	sc	%[res], %[mem]		\n"
-			".set pop				\n"
-			"	beqz	%[res], 1b		\n"
-			: [old] "=&r" (old), [res] "=&r" (res),
-			[mem] "+m" (*p)
-			: [mask] "r" (mask)
-			: "memory");
-
-	smp_mb();
-
-	return (old & mask) != 0;
-}
-
-static inline int test_and_clear_bit(int nr, volatile unsigned long *addr)
-{
-	unsigned long mask = BIT_MASK(nr);
-	unsigned long *p = ((unsigned long *)addr) + BIT_WORD(nr);
-	unsigned long old, res;
-
-	smp_mb();
-
-	__asm__ __volatile__(
-			".set push				\n"
-			".set noreorder				\n"
-			"1:	ll	%[old], %[mem]		\n"
-			"	or	%[res], %[old], %[mask]	\n"
-			"	xor	%[res], %[mask]		\n"
-			"	sc	%[res], %[mem]		\n"
-			".set pop				\n"
-			"	beqz	%[res], 1b		\n"
-			: [old] "=&r" (old), [res] "=&r" (res),
-			[mem] "+m" (*p)
-			: [mask] "r" (mask)
-			: "memory");
-
-	smp_mb();
-
-	return (old & mask) != 0;
-}
-
-static inline int test_and_change_bit(int nr, volatile unsigned long *addr)
-{
-	unsigned long mask = BIT_MASK(nr);
-	unsigned long *p = ((unsigned long *)addr) + BIT_WORD(nr);
-	unsigned long old, res;
-
-	smp_mb();
-
-	__asm__ __volatile__(
-			".set push				\n"
-			".set noreorder				\n"
-			"1:	ll	%[old], %[mem]		\n"
-			"	xor	%[res], %[old], %[mask]	\n"
-			"	sc	%[res], %[mem]		\n"
-			".set pop				\n"
-			"	beqz	%[res], 1b		\n"
-			: [old] "=&r" (old), [res] "=&r" (res),
-			[mem] "+m" (*p)
-			: [mask] "r" (mask)
-			: "memory");
-
-	smp_mb();
-
-	return (old & mask) != 0;
-}
-
-static inline void set_bit(int nr, volatile unsigned long *addr)
-{
-	test_and_set_bit(nr, addr);
-}
-
-static inline void clear_bit(int nr, volatile unsigned long *addr)
-{
-	test_and_clear_bit(nr, addr);
-}
-
-static inline void change_bit(int nr, volatile unsigned long *addr)
-{
-	test_and_change_bit(nr, addr);
 }
 
 #include <asm-generic/bitops/ffz.h>
