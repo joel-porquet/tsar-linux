@@ -1,7 +1,3 @@
-# atomic API
-# XXX: need to redefine arch-specific core functions when implementing SMP
-generic-y += atomic.h
-
 # defines BITS_PER_LONG, BITS_PER_LONG_LONG, etc.
 # no need for specialization
 generic-y += bitsperlong.h
