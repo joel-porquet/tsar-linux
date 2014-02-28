@@ -50,8 +50,7 @@ static inline void __tsar_##fn(unsigned long mask,           \
 			".set pop			\n"  \
 			"	beqz	%[tmp], 1b	\n"  \
 			: [tmp] "=&r" (tmp), [mem] "+m" (*p) \
-			: [mask] "r" (mask)                  \
-			: "memory");                         \
+			: [mask] "r" (mask));                \
 }
 
 DEFINE_BITOP(set_bit, or);
