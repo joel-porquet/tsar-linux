@@ -23,10 +23,6 @@ generic-y += checksum.h
 # no need for specialization
 generic-y += clkdev.h
 
-# compare and exchange API
-# XXX: need to be redefined when implementing SMP
-generic-y += cmpxchg.h
-
 # convert cputime to/from jiffies, nsecs, usecs, secs, etc.
 # no need for specialization
 generic-y += cputime.h
