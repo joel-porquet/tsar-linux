@@ -116,7 +116,7 @@ static inline unsigned long __cmpxchg(volatile void *ptr,
 ({						\
 	BUILD_BUG_ON(sizeof(*(ptr)) != 8);	\
 	cmpxchg((ptr), (o), (n));		\
- })
+})
 
 /* use the generic version for local 64-bits version */
 #include <asm-generic/cmpxchg-local.h>
