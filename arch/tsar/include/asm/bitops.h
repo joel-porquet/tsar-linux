@@ -42,12 +42,9 @@ static inline void __tsar_##fn(unsigned long mask,           \
 	unsigned long tmp;                                   \
 	unsigned long *p = (unsigned long *) _p;             \
 	__asm__ __volatile(                                  \
-			".set push			\n"  \
-			".set noreorder			\n"  \
 			"1:	ll	%[tmp], %[mem]	\n"  \
 			"	" #op "	%[tmp], %[mask]	\n"  \
 			"	sc	%[tmp], %[mem]	\n"  \
-			".set pop			\n"  \
 			"	beqz	%[tmp], 1b	\n"  \
 			: [tmp] "=&r" (tmp), [mem] "+m" (*p) \
 			: [mask] "r" (mask));                \
@@ -84,12 +81,9 @@ static inline unsigned long __tsar_##fn(unsigned long mask,         \
 	unsigned long *p = (unsigned long *) _p;                    \
 	smp_mb__before_llsc();                                      \
 	__asm__ __volatile(                                         \
-			".set push				\n" \
-			".set noreorder				\n" \
 			"1:	ll	%[old], %[mem]		\n" \
 			"	" #op "	%[res], %[old], %[mask]	\n" \
 			"	sc	%[res], %[mem]		\n" \
-			".set pop				\n" \
 			"	beqz	%[res], 1b		\n" \
 			: [old] "=&r" (old), [res] "=&r" (res),     \
 			[mem] "+m" (*p)                             \
