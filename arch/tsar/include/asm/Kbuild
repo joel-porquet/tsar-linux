@@ -66,10 +66,6 @@ generic-y += fb.h
 # XXX: other others define a few functions to implement it
 generic-y += ftrace.h
 
-# fast userspace mutex API
-# XXX: should implement it using ll/sc
-generic-y += futex.h
-
 # internal declarations for low-level interrupt controller
 # apparently not needed for new architectures
 generic-y += hw_irq.h
