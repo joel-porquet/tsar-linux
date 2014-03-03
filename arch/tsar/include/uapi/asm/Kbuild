@@ -1,6 +1,10 @@
 # export the following default list
 include include/uapi/asm-generic/Kbuild.asm
 
+# add those generic headers
+generic-y += auxvec.h
+generic-y += swab.h
+
 # export this one as well
 header-y += ucontext.h
 

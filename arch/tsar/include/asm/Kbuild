@@ -1,5 +1,4 @@
 generic-y += atomic.h # XXX: can use the generic version as long as !SMP
-generic-y += auxvec.h # empty
 generic-y += bitsperlong.h
 generic-y += bug.h # XXX: use generic for now, maybe redefine later
 generic-y += bugs.h # empty (it refers to processors having hardware bugs)
