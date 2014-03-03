@@ -1,6 +1,8 @@
 #ifndef _ASM_TSAR_BARRIER_H
 #define _ASM_TSAR_BARRIER_H
 
+#include <linux/compiler.h>
+
 #define read_barrier_depends()		do {} while (0)
 #define smp_read_barrier_depends()	do {} while (0)
 
