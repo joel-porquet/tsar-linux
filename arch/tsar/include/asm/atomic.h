@@ -13,12 +13,9 @@ static inline int __tsar_atomic_return_##fn(int i, atomic_t *v)     \
 	int res, tmp;                                               \
 	smp_mb__before_llsc();                                      \
 	__asm__ __volatile__(                                       \
-			".set push				\n" \
-			".set noreorder				\n" \
 			"1:	ll	%[tmp], %[mem]		\n" \
 			"	" #op "	%[res], %[tmp], %[imm]	\n" \
 			"	sc	%[res], %[mem]		\n" \
-			".set pop				\n" \
 			"	beqz	%[res], 1b		\n" \
 			"	" #op "	%[res], %[tmp], %[imm]	\n" \
 			: [tmp] "=&r" (tmp), [res] "=&r" (res),     \
@@ -45,12 +42,9 @@ static inline void __tsar_atomic_mask_##fn(unsigned long mask, atomic_t *v) \
 	int tmp;                                                            \
 	smp_mb__before_llsc();                                              \
 	__asm__ __volatile__(                                               \
-			".set push				\n"         \
-			".set noreorder				\n"         \
 			"1:	ll	%[tmp], %[mem]		\n"         \
 			"	" #op "	%[tmp], %[mask]		\n"         \
 			"	sc	%[tmp], %[mem]		\n"         \
-			".set pop				\n"         \
 			"	beqz	%[tmp], 1b		\n"         \
 			: [tmp] "=&r" (tmp),                                \
 			[mem] "+m" (v->counter)                             \
