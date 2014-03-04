@@ -1,73 +1,235 @@
-generic-y += atomic.h # XXX: can use the generic version as long as !SMP
-generic-y += bitsperlong.h
-generic-y += bug.h # XXX: use generic for now, maybe redefine later
-generic-y += bugs.h # empty (it refers to processors having hardware bugs)
-generic-y += cacheflush.h # XXX: empty now but should implement it in asm for tsar
-generic-y += checksum.h # XXX: we don't have the supporting functions...
-generic-y += clkdev.h # good for now I guess
-generic-y += cmpxchg.h # good as long as !SMP
-generic-y += cmpxchg-local.h
-generic-y += cputime.h # seems good enough
-generic-y += current.h # ok but we must provide thread_info.h
-generic-y += delay.h # seems ok for now (later in asm)
-generic-y += device.h # seems good enough
-generic-y += div64.h # seems good enough
-generic-y += dma.h # XXX: let's say it's enough for now
-generic-y += emergency-restart.h # ok
-generic-y += exec.h # XXX: only one define (align stack)
-generic-y += fb.h # should be enough for now
-generic-y += ftrace.h # empty?
-generic-y += futex.h # seems good enough
-generic-y += hw_irq.h # empty
-generic-y += ioctl.h # some archs don't even include it...
-generic-y += irq.h # XXX: let's keep it for now but should contain do_IRQ()
-generic-y += irq_regs.h # seems good enough
-generic-y += kdebug.h # should do it for now
-generic-y += kmap_types.h # seems good enough
-generic-y += kvm_para.h # seems good enough
-generic-y += linkage.h # seems good enough
-generic-y += local64.h # seems good enough (even not necessary)
-generic-y += local.h # seems good enough
-generic-y += module.h # XXX: to be changed the day we support modules I guess
-generic-y += msgbuf.h # seems good enough
-generic-y += mutex.h # the suggested default (mutex_dec) seems good enough
-generic-y += param.h # seems good enough
-generic-y += pci.h # apparently we could even have an empty one (cf score)
-generic-y += percpu.h # good enough
-generic-y += preempt.h # good enough
-generic-y += resource.h  # seems good enough
-generic-y += scatterlist.h # good enough
-generic-y += sections.h # good enough
-generic-y += segment.h # good enough
-generic-y += serial.h # good enough for now, to be changed if the serial port wants another value
-generic-y += siginfo.h # seems good enough
-generic-y += signal.h # let's say it's ok for now
-#generic-y += spinlock.h # XXX: the day we have smp, we should redefine this one
-generic-y += statfs.h # good enough
-generic-y += termios.h # seems good enough
-generic-y += timex.h # no time for now
-generic-y += topology.h # redefines that when we implement support for NUMA
-generic-y += trace_clock.h # everybody has it
-generic-y += unaligned.h # seems enough for now
-generic-y += ucontext.h # seems enough for now
-generic-y += user.h # apparently doesn't apply for us (it's for a.out)
-generic-y += vga.h # seems fine
-generic-y += xor.h # seems fine
+# atomic API
+# XXX: need to redefine arch-specific core functions when implementing SMP
+generic-y += atomic.h
 
-# exported from uapi/asm-generic
+# defines BITS_PER_LONG, BITS_PER_LONG_LONG, etc.
+# no need for specialization
+generic-y += bitsperlong.h
+
+# BUG API (BUG(), BUG_ON(), WARN(), WARN_ON(), etc.)
+# XXX: should be specialized when we can redefine BUG and BUG_ON
+generic-y += bug.h
+
+# defines check_bugs(), called at init, to check for arch-dependent bugs
+# tsar do not have buggy hardware implementation so we do not need proper bug
+# workaround yet
+generic-y += bugs.h
+
+# cacheflushing API
+# generic version is empty - not sure we need more since tsar is fully coherent
+generic-y += cacheflush.h
+
+# checksum API
+# XXX: could be redefined like mips using asm code
+generic-y += checksum.h
+
+# clk helpers
+# no need for specialization
+generic-y += clkdev.h
+
+# compare and exchange API
+# XXX: need to be redefined when implementing SMP
+generic-y += cmpxchg.h
+
+# convert cputime to/from jiffies, nsecs, usecs, secs, etc.
+# no need for specialization
+generic-y += cputime.h
+
+# defines current and get_current()
+# no need for specialization (but must provide current_thread_info() in
+# thread_info.h)
+generic-y += current.h
+
+# defines udelay() and ndelay()
+# no need for specialization (but must provide __udelay() and __ndelay(), for
+# us in lib/delay.c)
+generic-y += delay.h
+
+# arch specific extensions to 'struct device'
+# generic version is empty
+# XXX: other archs often define a dma operation field
+generic-y += device.h
+
+# defines do_div for 64bit/32bit division and modulo
+# no need for specialization
+generic-y += div64.h
+
+# defines a couple prototypes (request_dma() and free_dma()) for handling dma
+# channels. seems to be relevant only for ISA.
+# empty implementation since MAX_DMA_CHANNELS is not defined
+generic-y += dma.h
+
+# defines machine_emergency_restart
+# no need for specialization (but must provide machine_restart(), in
+# kernel/reboot.c for us)
+generic-y += emergency-restart.h
+
+# defines fb_pgprotect() and fb_is_primary_device()
+# no need for specialization (other archs redefines the prot of the fbmmap as
+# uncached but in our case, everything is cc so no need for that)
+generic-y += fb.h
+
+# ftrace API
+# generic version is empty
+# XXX: other others define a few functions to implement it
+generic-y += ftrace.h
+
+# fast userspace mutex API
+# XXX: should implement it using ll/sc
+generic-y += futex.h
+
+# internal declarations for low-level interrupt controller
+# apparently not needed for new architectures
+generic-y += hw_irq.h
+
+# defines _IOC_TYPECHECK()
+# some archs do not even include it
+generic-y += ioctl.h
+
+# defines NR_IRQS and irq_canonicalize()
+# we could complete it with do_IRQ() prototype...
+generic-y += irq.h
+
+# defines the per-cpu frame pointer (struct pt_regs *__irq_regs[NR_CPUS])
+# no need for specialization
+generic-y += irq_regs.h
+
+# defines enum die_val
+# generic version only defines DIE_UNUSED and DIE_OOPS
+# mips defines more values (DIE_FP, DIE_TRAP, DIE_RI, etc.)
+# XXX: we should specialize it when we support kgdb or we want a proper
+# handling of notification (kernel/notifier.c)
+generic-y += kdebug.h
+
+# defines KM_TYPE_NR (according to whether CONFIG_DEBUG_HIGHMEM is set)
+# it seems to specify the number of temporary kernel mappings per cpu
+# XXX: to be specialized when we have support for highmem
+generic-y += kmap_types.h
+
+# KVM paravirtualization
+# generic version defines it as not supported
+generic-y += kvm_para.h
+
+# potential overriding of linkage attributes
+# empty by default
+generic-y += linkage.h
+
+# local64 api (atomic ops on signed long long type)
+# no need for specialization
+generic-y += local64.h
+
+# local api (atomic ops on signed long type)
+# no need for specialization
+generic-y += local.h
+
+# defines elf macro names for module support
+# XXX: should be specialized when we support module
+generic-y += module.h
+
+# mutex fastpath API
+# generic version uses atomic decrement/increment for which we have an
+# optimized ll/sc version
+generic-y += mutex.h
+
+# defines HZ, USER_HZ and CLOCKS_PER_SEC
+# no need for specialization
+generic-y += param.h
+
+# PCI interface
+# could even be empty but let us stay with the generic version
+generic-y += pci.h
+
+# per_cpu API
+# no need for specialization (like mips)
+generic-y += percpu.h
+
+# preempt API
+# no need for specialization (like mips)
+generic-y += preempt.h
+
+# defines INIT_RLIMITS
+# no need for specialization
+generic-y += resource.h
+
+# scatterlist API
+# no need for specialization (like mips)
+generic-y += scatterlist.h
+
+# definition of section symbols (_text, _stext, _etext, etc.)
+# no need for specialization (like mips)
+generic-y += sections.h
+
+# segmentation API
+# generic version is empty
+# x86 uses it for their segmentation mechanism
+# a few archs to define mm_segment_t, USER_DS, get_fs, etc.
+# but most archs now define that in uaccess.h
+generic-y += segment.h
+
+# defines BASE_BAUD
+# no need for specialization (with the DT we can specify any clock we want for
+# serial ports)
+generic-y += serial.h
+
+# siginfo API
+# mainly includes uapi/siginfo.h
+# no need for specialization
+generic-y += siginfo.h
+
+# signal API
+# mainly includes uapi/signal.h
+# no need for specialization (but must provide sigcontext.h)
+generic-y += signal.h
+
+# statfs API
+# mainly includes uapi/statfs.h
+generic-y += statfs.h
+
+# termios/ktermios API
+# no need for specialization
+generic-y += termios.h
+
+# simple topology API
+# XXX: redefine it when we have support for NUMA
+generic-y += topology.h
+
+# arch-specific trace clocks
+# no need for specialization (like every archs)
+generic-y += trace_clock.h
+
+# unaligned accesses
+# no need for specialization (like mips)
+generic-y += unaligned.h
+
+# supposed to define struct user
+# only for a.out files which we do not support
+# generic version is empty
+generic-y += user.h
+
+# xor blocks API
+# no need for specialization (like mips)
+generic-y += xor.h
+
+####
+# imported from uapi/asm-generic
+####
+generic-y += auxvec.h
 generic-y += errno.h
 generic-y += fcntl.h
 generic-y += ioctls.h
 generic-y += ipcbuf.h
 generic-y += mman.h
+generic-y += msgbuf.h
 generic-y += poll.h
 generic-y += posix_types.h
 generic-y += sembuf.h
-generic-y += termbits.h
-generic-y += types.h
 generic-y += setup.h
 generic-y += shmbuf.h
 generic-y += shmparam.h
 generic-y += socket.h
 generic-y += sockios.h
 generic-y += stat.h
+generic-y += swab.h
+generic-y += termbits.h
+generic-y += types.h
+generic-y += ucontext.h
