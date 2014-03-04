@@ -15,12 +15,6 @@
 #include <asm/processor.h>
 #include <asm/timex.h>
 
-int read_current_timer(unsigned long *timer_value)
-{
-	*timer_value = get_cycles();
-	return 0;
-}
-
 void __delay(unsigned long cycles)
 {
 	cycles_t start = get_cycles();
