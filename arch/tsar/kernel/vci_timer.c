@@ -18,7 +18,7 @@
 #include <asm/io.h>
 
 /*
- * Driver for the SoCLib VCI Timer (vci_timer)
+ * Driver for the SoCLib VCI Timer (soclib,vci_timer)
  */
 
 /* vci_timer register map */
@@ -31,9 +31,7 @@
 #define VCI_TIMER_RUNNING	(_AC(1, UL) << 0)
 #define VCI_TIMER_IRQ_ENABLED	(_AC(1, UL) << 1)
 
-static struct clk *vci_timer_clk;
-static unsigned long vci_timer_rate;
-static unsigned long vci_timer_reload;
+static unsigned long vci_timer_period;
 
 static void __iomem *vci_timer_virt_base;
 
@@ -71,7 +69,7 @@ static void vci_timer_set_mode(enum clock_event_mode mode,
 			/* that's the only mode the vci_time supports,
 			 * set a period of one tick (rate/HZ), with IRQ enabled */
 			ctrl = VCI_TIMER_RUNNING | VCI_TIMER_IRQ_ENABLED;
-			__raw_writel(vci_timer_reload,
+			__raw_writel(vci_timer_period,
 					vci_timer_virt_base + VCI_TIMER_PERIOD);
 			break;
 		case CLOCK_EVT_MODE_ONESHOT:
@@ -98,10 +96,11 @@ static struct irqaction vci_timer_irq = {
 	.dev_id		= &vci_timer_clockevent,
 };
 
-static void __init vci_timer_clockevent_init(unsigned int irq)
+static void __init vci_timer_clockevent_init(unsigned int irq,
+		unsigned long clk_rate)
 {
 	/* compute the tick value in terms of cycle */
-	vci_timer_reload = DIV_ROUND_CLOSEST(vci_timer_rate, HZ);
+	vci_timer_period = DIV_ROUND_CLOSEST(clk_rate, HZ);
 
 	/* setup the timer IRQ handler */
 	setup_irq(irq, &vci_timer_irq);
@@ -110,45 +109,47 @@ static void __init vci_timer_clockevent_init(unsigned int irq)
 	 * min_ and max_delta are 0 because the vci timer doesn't support one
 	 * shot mode */
 	clockevents_config_and_register(&vci_timer_clockevent,
-			vci_timer_rate, 0, 0);
+			clk_rate, 0, 0);
 }
 
 /* clocksource configuration */
-static void __init vci_timer_clocksource_init(void)
+static void __init vci_timer_clocksource_init(unsigned long clk_rate)
 {
 	/* declare the vci_timer as a simple memory mapped clocksource */
 	clocksource_mmio_init(vci_timer_virt_base + VCI_TIMER_VALUE,
-			"vci_timer_clocksource", vci_timer_rate,
+			"vci_timer_clocksource", clk_rate,
 			300, 32, clocksource_mmio_readl_up);
 }
 
-static void __init vci_timer_get_clock(struct device_node *of_node)
+static unsigned long __init vci_timer_get_clock(struct device_node *of_node)
 {
 	int err;
+	static struct clk *clk;
 
 	/* get the clock associated to the timer */
-	vci_timer_clk = of_clk_get(of_node, 0);
+	clk = of_clk_get(of_node, 0);
 
-	if (IS_ERR(vci_timer_clk)) {
+	if (IS_ERR(clk)) {
 		pr_err("vci_timer: clock not found (%ld)\n",
-				PTR_ERR(vci_timer_clk));
-		return;
+				PTR_ERR(clk));
+		return 0;
 	}
 
-	err = clk_prepare_enable(vci_timer_clk);
+	err = clk_prepare_enable(clk);
 	if (err) {
 		pr_err("vci_timer: clock failed to prepare and enable (%d)\n", err);
-		clk_put(vci_timer_clk);
-		return;
+		clk_put(clk);
+		return 0;
 	}
 
-	vci_timer_rate = clk_get_rate(vci_timer_clk);
+	return clk_get_rate(clk);
 }
 
 static void __init vci_timer_init(struct device_node *of_node)
 {
 	unsigned int irq;
 	struct resource res;
+	unsigned long clk_rate;
 
 	/* get virq of the irq that links the vci_timer to the parent icu (ie
 	 * vci_icu) */
@@ -168,9 +169,9 @@ static void __init vci_timer_init(struct device_node *of_node)
 		panic("%s: failed to remap memory\n", of_node->full_name);
 
 	/* get the clock-frequency of the timer (and thus the system) */
-	vci_timer_get_clock(of_node);
+	clk_rate = vci_timer_get_clock(of_node);
 
-	if (!vci_timer_rate)
+	if (!clk_rate)
 		panic("%s: failed to determine clock frequency\n",
 				of_node->full_name);
 
@@ -179,8 +180,8 @@ static void __init vci_timer_init(struct device_node *of_node)
 
 	/* initialize the clocksource (ever-counting counter)
 	 * and the clockevent (periodic timer) */
-	vci_timer_clocksource_init();
-	vci_timer_clockevent_init(irq);
+	vci_timer_clocksource_init(clk_rate);
+	vci_timer_clockevent_init(irq, clk_rate);
 }
 CLOCKSOURCE_OF_DECLARE(vci_timer, "soclib,vci_timer", vci_timer_init);
 
