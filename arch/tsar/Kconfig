@@ -53,10 +53,14 @@ source "kernel/Kconfig.freezer"
 
 menu "Processor/system type and features"
 
-#config SMP
-#	bool "Symmetric multi-processing support"
-#	select USE_GENERIC_SMP_HELPERS
-#config NR_CPUS
+config SMP
+	bool "Symmetric multi-processing support"
+	depends on ARCH_TSAR_MULTI_SOCLIB
+
+config NR_CPUS
+	int "Maximum number of CPUs"
+	default 4
+	depends on SMP
 
 config TSAR_L1_CACHE_SHIFT
 	int "Size of L1 cache line (power of 2)"
@@ -79,6 +83,14 @@ config ARCH_TSAR_MONO_SOCLIB
 	select SOCLIB_VCI_MTTY
 	select TSAR_SOCLIB
 
+config ARCH_TSAR_MULTI_SOCLIB
+	bool "Tsar monocpu v4"
+	select ARCH_FLATMEM_ENABLE
+	select SOCLIB_VCI_XICU
+	select SOCLIB_VCI_IOC
+	select SOCLIB_VCI_MTTY
+	select TSAR_SOCLIB
+
 endchoice
 
 config TSAR_SOCLIB
@@ -88,6 +100,9 @@ config TSAR_FPGA
 	bool
 
 config SOCLIB_VCI_ICU
+	bool
+
+config SOCLIB_VCI_XICU
 	bool
 
 config SOCLIB_VCI_MTTY
