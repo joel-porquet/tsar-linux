@@ -41,7 +41,8 @@ int arch_show_interrupts(struct seq_file *p, int prec)
 }
 
 /*
- * handle_IRQ is called after decoding the IRQ by the system ICU (vci_icu)
+ * handle_IRQ is called after decoding the IRQ by the system ICU (vci_icu or
+ * vci_xicu)
  */
 void handle_IRQ(unsigned int virq, struct pt_regs *regs)
 {
@@ -75,6 +76,20 @@ void __init mips32_icu_init(void)
 	set_c0_status(ST0_IM);
 }
 
+#ifdef CONFIG_SMP
+static int mips32_icu_smp_notify(struct notifier_block *self,
+		unsigned long action, void *hcpu)
+{
+	mips32_icu_init();
+	return NOTIFY_OK;
+}
+
+/* Notifier for configuring the mips32_icu from non-boot cpus. */
+static struct notifier_block mips32_icu_smp_notifier = {
+	.notifier_call = mips32_icu_smp_notify,
+};
+#endif
+
 /*
  * IRQ global initialization
  */
@@ -88,6 +103,10 @@ void __init init_IRQ(void)
 	if (!handle_irq_icu)
 		panic("No interrupt controller found!");
 
+#ifdef CONFIG_SMP
+	/* make the non-boot mips32 unmask their internal IRQ sources */
+	register_cpu_notifier(&mips32_icu_smp_notifier);
+#endif
 	/* unmask the internal IRQ sources for the boot cpu */
 	mips32_icu_init();
 }
