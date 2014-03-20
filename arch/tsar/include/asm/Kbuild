@@ -223,7 +223,6 @@ generic-y += msgbuf.h
 generic-y += poll.h
 generic-y += posix_types.h
 generic-y += sembuf.h
-generic-y += setup.h
 generic-y += shmbuf.h
 generic-y += shmparam.h
 generic-y += socket.h

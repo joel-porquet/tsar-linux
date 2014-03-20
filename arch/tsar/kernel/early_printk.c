@@ -8,10 +8,11 @@
  */
 #include <linux/console.h>
 #include <linux/init.h>
+#include <linux/of.h>
+#include <linux/of_fdt.h>
 #include <linux/types.h>
 
 #include <asm/io.h>
-#include <asm/tsar_setup.h>
 
 static void __iomem *vci_tty_virt_base;
 
@@ -26,8 +27,6 @@ static void early_tty_putchar(const char c)
 static void early_tty_write(struct console *con, const char *s, unsigned n)
 {
 	while (n-- && *s) {
-		//if (*s == '\n')
-		//	early_tty_putchar('\r');
 		early_tty_putchar(*s);
 		s++;
 	}
@@ -41,19 +40,65 @@ static struct console early_tty_console = {
 	.index	= -1
 };
 
-void __init early_printk_init(void)
+static char *stdout_path __initdata;
+
+static int __init early_init_dt_scan_chosen_tty(unsigned long node, const char *uname,
+		int depth, void *data)
 {
-	phys_addr_t vci_tty_base_addr = 0;
+	unsigned long l;
+	char *p;
 
+	pr_debug("search \"chosen\", depth: %d, uname: %s\n", depth, uname);
+
+	/* first of all, find the chosen node */
+	if (depth == 1 &&
+			(strcmp(uname, "chosen") == 0 ||
+			 strcmp(uname, "chosen@0") == 0)) {
+		p = of_get_flat_dt_prop(node, "linux,stdout-path", &l);
+		if ((p != NULL) && (l > 0)) {
+			/* store pointer to stdout-path */
+			pr_debug("found linux,stdout-path property: %s\n", p);
+			stdout_path = p;
+		}
+	}
+
+	/* later (hopefully, when stdout_path has been found), find the
+	 * corresponding node */
+	if (stdout_path && strstr(stdout_path, uname)) {
+		p = of_get_flat_dt_prop(node, "compatible", &l);
+		pr_debug("linux,stdout-path compatible string: %s\n", p);
+
+		if (strcmp(p, "soclib,vci_multi_tty") == 0) {
+			phys_addr_t *base_addr;
+			base_addr = of_get_flat_dt_prop(node, "reg", &l);
+			return be32_to_cpup(base_addr);
+		}
+	}
+
+	/* return 0 until found */
+	return 0;
+}
+
+/* this function works while the DTB is still unflattened */
+static phys_addr_t __init of_early_console(void)
+{
+	return of_scan_flat_dt(early_init_dt_scan_chosen_tty, NULL);
+}
+
+static int __init setup_early_printk(char *buf)
+{
+	phys_addr_t vci_tty_base_addr;
+
+	/* already initialized */
 	if (early_console)
-		return;
+		return 0;
 
-	/* get the physical base address of the tty from the device tree */
+	/* setup the physical address of the early console device */
 	vci_tty_base_addr = of_early_console();
 
 	if (!vci_tty_base_addr)
 		/* no tty is available... */
-		return;
+		return 0;
 
 	/* map the tty */
 	vci_tty_virt_base = ioremap_nocache(vci_tty_base_addr, 0xc);
@@ -63,4 +108,8 @@ void __init early_printk_init(void)
 
 	early_console = &early_tty_console;
 	register_console(early_console);
+
+	return 0;
 }
+
+early_param("earlyprintk", setup_early_printk);

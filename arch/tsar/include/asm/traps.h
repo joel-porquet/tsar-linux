@@ -1,20 +1,7 @@
-#ifndef _ASM_TSAR_SETUP_H
-#define _ASM_TSAR_SETUP_H
+#ifndef _ASM_TSAR_TRAPS_H
+#define _ASM_TSAR_TRAPS_H
 
 #include <asm/ptrace.h>
-
-/*
- * prototypes for setup_arch at boot time
- */
-
-#ifdef CONFIG_EARLY_PRINTK
-extern phys_addr_t of_early_console(void);
-extern void early_printk_init(void);
-#else
-static inline void early_printk_init(void) {}
-#endif
-
-extern void tsar_memory_init(void);
 
 /*
  * exception management
@@ -36,6 +23,4 @@ extern void handle_tr(void);
 extern void do_page_fault(struct pt_regs*, unsigned long,
 		unsigned int, unsigned int);
 
-
-
-#endif /* _ASM_TSAR_SETUP_H */
+#endif /* _ASM_TSAR_TRAPS_H */

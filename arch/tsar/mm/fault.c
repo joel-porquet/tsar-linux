@@ -14,6 +14,7 @@
 
 #include <asm/uaccess.h>
 #include <asm/mmuc2.h>
+#include <asm/traps.h>
 
 extern void die(const char *, struct pt_regs *);
 

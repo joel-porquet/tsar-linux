@@ -17,11 +17,11 @@
 #include <linux/swap.h>
 #include <linux/types.h>
 
-#include <asm/meminfo.h>
 #include <asm/page.h>
 #include <asm/pgalloc.h>
 #include <asm/pgtable.h>
 #include <asm/sections.h>
+#include <asm/setup.h>
 
 /* the reference kernel page table */
 pgd_t swapper_pg_dir[PTRS_PER_PGD] __section(.bss..swapper_pg_dir);
@@ -29,43 +29,28 @@ pgd_t swapper_pg_dir[PTRS_PER_PGD] __section(.bss..swapper_pg_dir);
 /* always null filled page */
 unsigned long empty_zero_page[PAGE_SIZE / sizeof(unsigned long)]  __page_aligned_bss;
 
+/* before memory is initialized, ioremap must use fixed mappings */
 unsigned int mem_init_done = 0;
-
-static int __init meminfo_cmp(const void *_a, const void *_b)
-{
-	const struct membank *a = _a, *b = _b;
-	long cmp = membank_phys_start(a) - membank_phys_start(b);
-	return cmp < 0 ? -1 : cmp > 0 ? 1 : 0;
-}
 
 /* make sure the vmalloc area will be 128MB minimum */
 static void * vmalloc_min __initdata =
 	(void *)(VMALLOC_END - SZ_128M - VMALLOC_OFFSET);
 static phys_addr_t lowmem_limit __initdata = 0;
 
-void __init tsar_memory_init(void)
+void __init memory_init(void)
 {
-	int i;
-
 	/* complete init_mm */
 	init_mm.start_code = (unsigned long) _stext;
 	init_mm.end_code   = (unsigned long) _etext;
 	init_mm.end_data   = (unsigned long) _edata;
 	init_mm.brk	   = (unsigned long) _end;
 
-	/* order the memory banks by starting addresses */
-	sort(&meminfo.bank, meminfo.nr_banks, sizeof(meminfo.bank[0]), meminfo_cmp, NULL);
-
 	/* TODO: deal with HIGHMEM */
 
+#ifdef CONFIG_MEMBLOCK_DEBUG
 	/* debug the memblock API */
-	//memblock_debug = 1;
-
-	/* add them to the memblock subsystem */
-	for_each_membank(i, &meminfo) {
-		struct membank *bank = &meminfo.bank[i];
-		memblock_add(membank_phys_start(bank), membank_phys_size(bank));
-	}
+	memblock_debug = 1;
+#endif
 
 	/* register the kernel text and data */
 	memblock_reserve(__pa(_stext), _end - _stext);

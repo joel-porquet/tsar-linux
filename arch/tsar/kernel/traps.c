@@ -14,7 +14,7 @@
 #include <asm/mips32c0.h>
 #include <asm/mmuc2.h>
 #include <asm/ptrace.h>
-#include <asm/tsar_setup.h>
+#include <asm/traps.h>
 
 unsigned long exception_handlers[32];
 

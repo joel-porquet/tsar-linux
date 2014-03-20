@@ -10,18 +10,17 @@
 #include <linux/console.h>
 #include <linux/init.h>
 #include <linux/ioport.h>
+#include <linux/of.h>
+#include <linux/of_fdt.h>
+#include <linux/of_platform.h>
 #include <linux/memblock.h>
 #include <linux/mm.h>
-#include <linux/of_fdt.h>
 #include <linux/printk.h>
 #include <linux/seq_file.h>
 
 #include <asm/io.h>
-#include <asm/meminfo.h>
 #include <asm/sections.h>
-#include <asm/tsar_setup.h>
-
-struct meminfo meminfo;
+#include <asm/setup.h>
 
 static struct resource kernel_code_resource = { .name = "Kernel code", };
 static struct resource kernel_data_resource = { .name = "Kernel data", };
@@ -30,35 +29,9 @@ static struct resource kernel_bss_resource = { .name = "Kernel bss", };
 extern struct boot_param_header __dtb_start; /* defined by Linux */
 void *dtb_start = &__dtb_start;
 
-int __init meminfo_add_membank(phys_addr_t start, phys_addr_t size)
-{
-	struct membank *bank = &meminfo.bank[meminfo.nr_banks];
-
-	if (meminfo.nr_banks >= NR_MEM_BANKS) {
-		pr_crit("NR_BANKS too low, ignoring memory at 0x%08llx\n",
-				(long long)start);
-		return -EINVAL;
-	}
-
-	/* start and size must be page aligned:
-	 * - start is rounded up
-	 * - size is rounded down */
-	size -= PAGE_ALIGN(start) - start;
-
-	membank_phys_start(bank) = PAGE_ALIGN(start);
-	membank_phys_size(bank) = size & PAGE_MASK;
-
-	/* check the size of this new region has non-zero size */
-	if (membank_phys_size(bank) == 0)
-		return -EINVAL;
-
-	meminfo.nr_banks++;
-	return 0;
-}
-
 static void __init resource_init(void)
 {
-	int i;
+	struct memblock_region *region;
 
 	kernel_code_resource.start = __pa(_stext);
 	kernel_code_resource.end = __pa(_etext) - 1;
@@ -72,18 +45,15 @@ static void __init resource_init(void)
 	kernel_bss_resource.end = __pa(__bss_stop) - 1;
 	kernel_bss_resource.flags = IORESOURCE_BUSY | IORESOURCE_MEM;
 
-	/* XXX: should we use for_each_memblock instead? */
-	for_each_membank(i, &meminfo) {
-		struct membank *bank = &meminfo.bank[i];
-
+	for_each_memblock(memory, region) {
 		/* XXX: should we discard highmem memory banks as in MIPS? */
 		struct resource *res;
 		res = __va(memblock_alloc(sizeof(struct resource), SMP_CACHE_BYTES));
 
 		/* signal the memory bank to the resource manager */
 		res->name = "System RAM";
-		res->start = bank->start;
-		res->end = bank->start + bank->size - 1;
+		res->start = PFN_PHYS(memblock_region_memory_base_pfn(region));
+		res->end = PFN_PHYS(memblock_region_memory_end_pfn(region)) - 1;
 		res->flags = IORESOURCE_MEM | IORESOURCE_BUSY;
 
 		request_resource(&iomem_resource, res);
@@ -96,10 +66,23 @@ static void __init resource_init(void)
 	}
 }
 
+void __init early_init_devtree(void *dtb)
+{
+	const char* machine_name;
+
+	if (!dtb || !early_init_dt_scan(dtb)) {
+		panic("Scanning device tree blob failed!\n");
+	}
+
+	machine_name = of_flat_dt_get_machine_name();
+	if (machine_name)
+		pr_info("Model: %s\n", machine_name);
+}
+
 void __init setup_arch(char **cmdline_p)
 {
 	/* early parsing of the device tree to setup the machine:
-	 * - memory banks (meminfo structure)
+	 * - memory banks (memblock api)
 	 * - bootargs (boot_command_line definition)
 	 */
 	early_init_devtree(dtb_start);
@@ -108,18 +91,15 @@ void __init setup_arch(char **cmdline_p)
 	 * ioremap are up: necessary for earlyprintk and/or earlycon */
 	ioremap_fixed_early_init();
 
-	/* use tty as an early console */
-	early_printk_init();
-
-	/* parse early param of boot_command_line,
-	 * such as 'earlycon' for example */
+	/* parse early param of boot_command_line:
+	 * e.g. 'earlyprintk' or 'earlycon' */
 	parse_early_param();
 
 	/* setup memory:
-	 * - memblock
-	 * - zones
+	 * - init_mm
+	 * - memblock limits
 	 */
-	tsar_memory_init();
+	memory_init();
 
 	paging_init();
 
@@ -131,22 +111,48 @@ void __init setup_arch(char **cmdline_p)
 	/* give boot_command_line back to init/main.c */
 	*cmdline_p = boot_command_line;
 
-	/* configure a virtual terminal */
 #if defined(CONFIG_VT)
+	/* configure a virtual terminal */
 	conswitchp = &dummy_con;
 #endif
 }
 
-static int show_cpuinfo(struct seq_file *m, void *v)
+
+/*
+ * Device tree population
+ */
+
+int __init tsar_device_probe(void)
 {
-	unsigned long n = (unsigned long) v - 1;
+	if (!of_have_populated_dt())
+		panic("Device tree not present!");
 
+	return of_platform_populate(NULL, of_default_bus_match_table, NULL,
+			NULL);
+}
+arch_initcall(tsar_device_probe);
+
+
+/*
+ * /proc/cpuinfo callbacks
+ */
+
+static int c_show(struct seq_file *m, void *v)
+{
+	int i;
+
+	seq_printf(m, "Processor\t: MIPS32\n");
+
+	for_each_online_cpu(i) {
 #ifdef CONFIG_SMP
-	if (!cpu_online(n))
-		return 0;
+		seq_printf(m, "processor\t: %d\n", i);
 #endif
+	}
 
-	seq_printf(m, "processor\t\t: %ld\n", n);
+	seq_printf(m, "CPU company\t: %ld\n", (read_c0_prid() >> 16) & 0xff);
+	seq_printf(m, "CPU implementation\t: %ld\n", (read_c0_prid() >> 8) & 0xff);
+	seq_printf(m, "CPU revision\t: %ld\n", read_c0_prid() & 0xff);
+
 	seq_printf(m, "\n");
 
 	return 0;
@@ -154,15 +160,13 @@ static int show_cpuinfo(struct seq_file *m, void *v)
 
 static void *c_start(struct seq_file *m, loff_t *pos)
 {
-	unsigned long i = *pos;
-
-	return (i < NR_CPUS) ? (void*)(i + 1) : NULL;
+	return *pos < 1 ? (void *)1 : NULL;
 }
 
 static void *c_next(struct seq_file *m, void *v, loff_t *pos)
 {
 	++*pos;
-	return c_start(m, pos);
+	return NULL;
 }
 
 static void c_stop(struct seq_file *m, void *v)
@@ -173,5 +177,5 @@ const struct seq_operations cpuinfo_op = {
 	.start	= c_start,
 	.next	= c_next,
 	.stop	= c_stop,
-	.show	= show_cpuinfo,
+	.show	= c_show,
 };
