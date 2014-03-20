@@ -1,5 +1,6 @@
 config TSAR
 	def_bool y
+	select CLKSRC_OF
 	select CLONE_BACKWARDS # position of tls in clone syscall
 	select COMMON_CLK
 	select GENERIC_ATOMIC64
@@ -95,7 +96,6 @@ config SOCLIB_VCI_MTTY
 config SOCLIB_VCI_TIMER
 	bool
 	select CLKSRC_MMIO
-	select CLKSRC_OF
 
 config SOCLIB_VCI_IOC
 	bool
