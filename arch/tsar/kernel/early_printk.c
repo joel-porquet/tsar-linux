@@ -42,6 +42,13 @@ static struct console early_tty_console = {
 
 static char *stdout_path __initdata;
 
+/*
+ * This function is supposed to receive all the nodes of the device tree, in
+ * order. First it must find the chosen node (to find the "linux,stdout-path"
+ * property), and then the corresponding tty node.
+ * WARNING: It means that it is of the utmost importance that the chosen node
+ * appears before the tty node in the DTS/DTB!
+ */
 static int __init early_init_dt_scan_chosen_tty(unsigned long node, const char *uname,
 		int depth, void *data)
 {

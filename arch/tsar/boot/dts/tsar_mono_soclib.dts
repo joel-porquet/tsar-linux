@@ -1,10 +1,18 @@
+/*
+ * DTS file for TSAR monocpu on SoCLib
+ *
+ * Includes the skeleton and specializes it:
+ *  - use of vci_icu
+ *  - use of vci_timer
+ */
+
 /dts-v1/;
 
+/include/ "tsar_soclib_skeleton.dtsi"
+
 / {
-	model = "UPMC/LIP6/SoC - Tsar v4 monocpu";
-	compatible = "tsar,monocpu_v4";
-	#address-cells = <1>;
-	#size-cells = <1>;
+	model = "UPMC/LIP6/SoC - Tsar v4 monocpu SoCLib";
+	compatible = "tsar,v4_soclib", "tsar,monocpu_v4_soclib";
 
 	chosen {
 		/* the day we have a uart8250 compatible component, we can use
@@ -22,91 +30,30 @@
 		linux,stdout-path = &tty;
 	};
 
-	cpus {
-		#address-cells = <1>;
-		#size-cells = <0>;
-		cache-type = <&cache>;
-		cpu@0 {
-			compatible = "soclib,mips32el";
-			reg = <0>;
-		};
-	};
-
-	cache: l1_cache_mmu {
-		compatible = "tsar,cc_vcache_v4";
-	};
-
-	cpuicu: cpuicu@0{
-		compatible = "soclib,mips32_icu";
-		interrupt-controller;
-		#interrupt-cells = <1>;
-	};
-
 	vci {
-		compatible = "soclib,vgmn", "simple-bus";
-		#address-cells = <1>;
-		#size-cells = <1>;
-		ranges; // identity mapping between root addressing and vci network
-
-		icu: icu@0x10000000 {
+		icu: icu {
+			/* the vci_icu is a N->1 interrupt controller */
 			compatible = "soclib,vci_icu";
 			reg = <0x10000000 0x14>;
 
-			interrupt-controller;
-			#interrupt-cells = <1>;
+			/* connected to irq #2 of the cpu */
+			interrupts = <2>;
 
-			interrupt-parent = <&cpuicu>;
-			interrupts = <2>; // interrupts 0 and 1 of cpuicu are softirqs
+			#interrupt-cells = <1>;
 		};
 
-		tty: tty@0x14000000 {
-			compatible = "soclib,vci_multi_tty";
-			reg = <0x14000000 0xc>;
-
-			interrupt-parent = <&icu>;
+		tty: tty {
 			interrupts = <0>;
 		};
 
-		timer@0x18000000 {
+		timer {
 			compatible = "soclib,vci_timer";
 			reg = <0x18000000 0x10>;
-
-			clocks = <&freq>;
-
-			interrupt-parent = <&icu>;
 			interrupts = <1>;
 		};
 
-		blockdevice@0x1c000000 {
-			compatible = "tsar,vci_block_device_tsar_v4";
-			reg = <0x1c000000 0x20>;
-
-			interrupt-parent = <&icu>;
+		blockdevice {
 			interrupts = <2>;
-		};
-
-		/*
-		framebuffer@0x20000000 {
-			compatible = "tsar,vci_framebuffer", "simple-framebuffer";
-			reg = <0x20000000 (640 * 680 * 2)>;
-			width = <640>;
-			height = <480>;
-			stride = <(640 * 2)>;
-			format = "r5g6b5";
-		};
-		*/
-
-		memory@0x00000000 {
-			device_type = "memory";
-			reg = <0x00000000 0x10000000>;
-		};
-	};
-
-	clocks {
-		freq: frequency {
-			#clock-cells = <0>;
-			compatible = "fixed-clock";
-			clock-frequency = <25000000>; // assumes a certain clock frequency
 		};
 	};
 };
