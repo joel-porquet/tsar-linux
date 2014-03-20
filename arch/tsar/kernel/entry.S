@@ -81,7 +81,9 @@ ENTRY(handle_int)
 	CLI
 	move	a0, sp // give the current pt_regs as arg
 	la	ra, ret_from_intr
-	j	do_IRQ
+	la	t0, handle_irq_icu // get the IRQ handler
+	lw	t0, (t0)
+	jr	t0
 ENDPROC(handle_int)
 
 ENTRY(handle_ade)

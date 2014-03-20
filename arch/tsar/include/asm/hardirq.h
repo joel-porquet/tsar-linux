@@ -13,6 +13,8 @@
 extern void ack_bad_irq(unsigned int irq);
 #define ack_bad_irq ack_bad_irq
 
+extern void handle_IRQ(unsigned int, struct pt_regs *);
+
 #include <asm-generic/hardirq.h>
 
 #endif /* _ASM_TSAR_HARDIRQ_H */

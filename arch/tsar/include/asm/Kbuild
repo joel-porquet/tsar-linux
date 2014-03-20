@@ -86,10 +86,6 @@ generic-y += hw_irq.h
 # some archs do not even include it
 generic-y += ioctl.h
 
-# defines NR_IRQS and irq_canonicalize()
-# we could complete it with do_IRQ() prototype...
-generic-y += irq.h
-
 # defines the per-cpu frame pointer (struct pt_regs *__irq_regs[NR_CPUS])
 # no need for specialization
 generic-y += irq_regs.h

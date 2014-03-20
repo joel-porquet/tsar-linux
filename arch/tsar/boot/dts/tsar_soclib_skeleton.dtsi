@@ -6,6 +6,7 @@
 	compatible = "tsar,v4_soclib";
 	#address-cells = <1>;
 	#size-cells = <1>;
+	interrupt-parent = <&icu>;
 
 	chosen { };
 	aliases { };
@@ -17,20 +18,7 @@
 			device_type = "cpu";
 			compatible = "soclib,mips32el";
 			reg = <0>;
-			cache-type = <&cache>;
-			icu-type = <&cpuicu>;
-			clk-type = <&cpuclk>;
 		};
-	};
-
-	cache: l1_cache_mmu {
-		compatible = "tsar,cc_vcache_v4";
-	};
-
-	cpuicu: cpuicu{
-		compatible = "soclib,mips32_icu";
-		interrupt-controller;
-		#interrupt-cells = <1>;
 	};
 
 	cpuclk: cpuclk{
@@ -46,27 +34,22 @@
 
 		icu: icu {
 			interrupt-controller;
-			interrupt-parent = <&cpuicu>;
+			#interrupt-cells = <1>;
 		};
 
 		tty: tty {
 			compatible = "soclib,vci_multi_tty";
 			reg = <0x14000000 0xc>;
-
-			interrupt-parent = <&icu>;
+			interrupts = <0>;
 		};
 
 		timer {
 			clocks = <&freq25MHz>;
-
-			interrupt-parent = <&icu>;
 		};
 
 		blockdevice {
 			compatible = "tsar,vci_block_device_tsar_v4";
 			reg = <0x1c000000 0x20>;
-
-			interrupt-parent = <&icu>;
 		};
 
 		/*

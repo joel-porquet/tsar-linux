@@ -34,19 +34,22 @@
 #define VCI_ICU_IT_VECTOR	0x10 // RO: highest active IRQ
 
 static void __iomem *vci_icu_virt_base;
+static struct irq_domain *vci_icu_irq_domain;
 
 static inline void vci_icu_mask(struct irq_data *d)
 {
 	/* mask the requested irq (hwirq is the hardware irq number, local to
 	 * the vci_icu) */
-	__raw_writel(BIT(d->hwirq), vci_icu_virt_base + VCI_ICU_MASK_CLEAR);
+	irq_hw_number_t hwirq = irqd_to_hwirq(d);
+	__raw_writel(BIT(hwirq), vci_icu_virt_base + VCI_ICU_MASK_CLEAR);
 }
 
 static inline void vci_icu_unmask(struct irq_data *d)
 {
 	/* unmask the requested irq (hwirq is the hardware irq number, local to
 	 * the vci_icu) */
-	__raw_writel(BIT(d->hwirq), vci_icu_virt_base + VCI_ICU_MASK_SET);
+	irq_hw_number_t hwirq = irqd_to_hwirq(d);
+	__raw_writel(BIT(hwirq), vci_icu_virt_base + VCI_ICU_MASK_SET);
 }
 
 static struct irq_chip vci_icu_controller = {
@@ -56,70 +59,63 @@ static struct irq_chip vci_icu_controller = {
 	.irq_unmask 	= vci_icu_unmask,
 };
 
-static void vci_icu_irq_handler(unsigned int irq, struct irq_desc *desc)
+static asmlinkage __irq_entry
+HANDLE_IRQ(vci_icu_handle_irq)
 {
-	/* get the index of the highest-priority active irq */
-	s32 pending_irq = __raw_readl(vci_icu_virt_base + VCI_ICU_IT_VECTOR);
+	s32 hwirq;
+	unsigned int virq;
 
-	if (pending_irq >= 0 && pending_irq < NR_IRQS) {
-		/* find the domain for vci_icu */
-		struct irq_domain *domain = irq_get_handler_data(irq);
-		generic_handle_irq(irq_find_mapping(domain, pending_irq));
+	/* get the index of the highest-priority active hwirq */
+	hwirq = __raw_readl(vci_icu_virt_base + VCI_ICU_IT_VECTOR);
+
+	if (hwirq >= 0 && hwirq < VCI_ICU_IRQ_COUNT) {
+		/* find the corresponding virq */
+		virq = irq_find_mapping(vci_icu_irq_domain, hwirq);
+		/* and call the main IRQ handler */
+		handle_IRQ(virq, regs);
 	} else {
-		ack_bad_irq(pending_irq);
+		ack_bad_irq(hwirq);
 	}
 }
 
-static int vci_icu_map(struct irq_domain *d, unsigned int irq,
+static int vci_icu_map(struct irq_domain *d, unsigned int virq,
 		irq_hw_number_t hw)
 {
 	/* associate irqs with vci_icu controller */
 	/* IRQs on vci_icu are level type interrupts */
-	irq_set_chip_and_handler(irq, &vci_icu_controller, handle_level_irq);
+	irq_set_chip_and_handler(virq, &vci_icu_controller, handle_level_irq);
+	irq_set_status_flags(virq, IRQ_LEVEL);
 	return 0;
 }
 
 static const struct irq_domain_ops vci_icu_domain_ops = {
-	.map = vci_icu_map,
-	.xlate = irq_domain_xlate_onecell,
+	.map	= vci_icu_map,
+	.xlate	= irq_domain_xlate_onecell,
 };
 
 int __init vci_icu_init(struct device_node *of_node, struct device_node *parent)
 {
-	struct irq_domain *domain;
-	unsigned int irq;
 	struct resource res;
 
-	/* get virq of the irq that links the vci_icu to the parent icu (ie
-	 * mips32_icu) */
-	irq = irq_of_parse_and_map(of_node, 0);
-	if (!irq)
-		panic("%s: failed to get IRQ\n", of_node->full_name);
-
-	if (of_address_to_resource(of_node, 0, &res))
-		panic("%s: failed to get memory range\n", of_node->full_name);
-
-	if (!request_mem_region(res.start, resource_size(&res), res.name))
-		panic("%s: failed to request memory\n", of_node->full_name);
+	BUG_ON(of_address_to_resource(of_node, 0, &res));
+	BUG_ON(!request_mem_region(res.start, resource_size(&res), res.name));
 
 	vci_icu_virt_base = ioremap_nocache(res.start, resource_size(&res));
 
-	if (!vci_icu_virt_base)
-		panic("%s: failed to remap memory\n", of_node->full_name);
+	BUG_ON(!vci_icu_virt_base);
 
-	/* add an irq domain for vci_icu */
-	domain = irq_domain_add_linear(of_node, VCI_ICU_IRQ_COUNT,
+	/* add an irq domain for the vci_icu */
+	vci_icu_irq_domain = irq_domain_add_linear(of_node, VCI_ICU_IRQ_COUNT,
 			&vci_icu_domain_ops, NULL);
-	if (!domain)
-		panic("%s: failed to add irqdomain\n", of_node->full_name);
+	BUG_ON(!vci_icu_irq_domain);
 
 	/* disable all vci_icu IRQs */
 	__raw_writel(~0, vci_icu_virt_base + VCI_ICU_MASK_CLEAR);
 
-	/* link vci_icu to mips32_icu */
-	irq_set_chained_handler(irq, vci_icu_irq_handler);
-	irq_set_handler_data(irq, domain);
+	/* provide an IRQ handler for the vcu_icu */
+	set_handle_irq(vci_icu_handle_irq);
 
 	return 0;
 }
+
 IRQCHIP_DECLARE(vci_icu, "soclib,vci_icu", vci_icu_init);

@@ -35,11 +35,6 @@
 			/* the vci_icu is a N->1 interrupt controller */
 			compatible = "soclib,vci_icu";
 			reg = <0x10000000 0x14>;
-
-			/* connected to irq #2 of the cpu */
-			interrupts = <2>;
-
-			#interrupt-cells = <1>;
 		};
 
 		tty: tty {
