@@ -53,23 +53,6 @@ source "kernel/Kconfig.freezer"
 
 menu "Processor/system type and features"
 
-config SMP
-	bool "Symmetric multi-processing support"
-	depends on ARCH_TSAR_MULTI_SOCLIB
-
-config NR_CPUS
-	int "Maximum number of CPUs"
-	default 4
-	depends on SMP
-
-config TSAR_L1_CACHE_SHIFT
-	int "Size of L1 cache line (power of 2)"
-	default 6
-
-config PAGE_OFFSET
-	hex "User/kernel split address"
-	default 0xC0000000
-
 choice
 	prompt "TSAR system type"
 	default ARCH_TSAR_MONO_SOCLIB
@@ -92,6 +75,24 @@ config ARCH_TSAR_MULTI_SOCLIB
 	select TSAR_SOCLIB
 
 endchoice
+
+config SMP
+	bool "Symmetric multi-processing support"
+	depends on ARCH_TSAR_MULTI_SOCLIB
+
+config NR_CPUS
+	int "Maximum number of CPUs" if SMP
+	range 2 4 if SMP
+	default "1" if !SMP
+	default "4" if SMP
+
+config TSAR_L1_CACHE_SHIFT
+	int "Size of L1 cache line (power of 2)"
+	default 6
+
+config PAGE_OFFSET
+	hex "User/kernel split address"
+	default 0xC0000000
 
 config TSAR_SOCLIB
 	bool
