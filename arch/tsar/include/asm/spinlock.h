@@ -14,7 +14,7 @@
  * - unlock_wait
  */
 
-static inline void arch_spin_lock(arch_spin_lock *lock)
+static inline void arch_spin_lock(arch_spinlock_t *lock)
 {
 	int my_ticket;
 	int tmp;
@@ -108,13 +108,15 @@ static inline int arch_spin_is_locked(arch_spinlock_t *lock)
 	 * will increment serving_now only when it is done with the lock */
 
 	u32 tmp = ACCESS_ONCE(lock->lock);
-	return tmp.serving_now != tmp.ticket;
+	return (((arch_spinlock_t)tmp).h.ticket !=
+			((arch_spinlock_t)tmp).h.serving_now);
 }
 
 static inline int arch_spin_is_contended(arch_spinlock_t *lock)
 {
 	u32 tmp = ACCESS_ONCE(lock->lock);
-	return (tmp.ticket - tmp.serving_now) > 1;
+	return (((arch_spinlock_t)tmp).h.ticket -
+			((arch_spinlock_t)tmp).h.serving_now) > 1;
 }
 #define arch_spin_is_contended arch_spin_is_contended
 
@@ -140,17 +142,17 @@ static inline void arch_spin_unlock_wait(arch_spinlock_t *lock)
  * - read_lock_flags/write_lock_flags
  */
 
-static inline int arch_read_can_lock(arch_rwlock_t *lock)
+static inline int arch_read_can_lock(arch_rwlock_t *rw)
 {
-	return (lock->lock >= 0);
+	return (rw->lock >= 0);
 }
 
-static inline int arch_write_can_lock(arch_rwlock_t *lock)
+static inline int arch_write_can_lock(arch_rwlock_t *rw)
 {
-	return (!lock->lock);
+	return (!rw->lock);
 }
 
-static inline void arch_read_lock(arch_rwlock_t *lock)
+static inline void arch_read_lock(arch_rwlock_t *rw)
 {
 	unsigned int tmp;
 
