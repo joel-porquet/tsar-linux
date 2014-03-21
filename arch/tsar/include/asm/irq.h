@@ -1,6 +1,8 @@
 #ifndef _TSAR_ASM_IRQ_H
 #define _TSAR_ASM_IRQ_H
 
+#include <asm/ptrace.h>
+
 /* IRQ handler function template */
 #define HANDLE_IRQ(n) void (n)(struct pt_regs *regs)
 typedef HANDLE_IRQ(handle_irq_t);
