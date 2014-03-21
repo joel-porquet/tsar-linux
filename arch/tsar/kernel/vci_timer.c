@@ -9,6 +9,7 @@
 
 #include <linux/clk.h>
 #include <linux/clockchips.h>
+#include <linux/clocksource.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
 #include <linux/ioport.h>
@@ -123,24 +124,13 @@ static void __init vci_timer_clocksource_init(unsigned long clk_rate)
 
 static unsigned long __init vci_timer_get_clock(struct device_node *of_node)
 {
-	int err;
 	static struct clk *clk;
 
 	/* get the clock associated to the timer */
 	clk = of_clk_get(of_node, 0);
 
-	if (IS_ERR(clk)) {
-		pr_err("vci_timer: clock not found (%ld)\n",
-				PTR_ERR(clk));
-		return 0;
-	}
-
-	err = clk_prepare_enable(clk);
-	if (err) {
-		pr_err("vci_timer: clock failed to prepare and enable (%d)\n", err);
-		clk_put(clk);
-		return 0;
-	}
+	BUG_ON(IS_ERR(clk));
+	BUG_ON(clk_prepare_enable(clk));
 
 	return clk_get_rate(clk);
 }
@@ -151,29 +141,23 @@ static void __init vci_timer_init(struct device_node *of_node)
 	struct resource res;
 	unsigned long clk_rate;
 
-	/* get virq of the irq that links the vci_timer to the parent icu (ie
+	/* get virq of the irq that links the vci_timer to the parent icu (e.g.
 	 * vci_icu) */
 	irq = irq_of_parse_and_map(of_node, 0);
-	if (!irq)
-		panic("%s: failed to get IRQ\n", of_node->full_name);
+	BUG_ON(!irq);
 
-	if (of_address_to_resource(of_node, 0, &res))
-		panic("%s: failed to get memory range\n", of_node->full_name);
+	BUG_ON(of_address_to_resource(of_node, 0, &res));
 
-	if (!request_mem_region(res.start, resource_size(&res), res.name))
-		panic("%s: failed to request memory\n", of_node->full_name);
+	BUG_ON(!request_mem_region(res.start, resource_size(&res), res.name));
 
 	vci_timer_virt_base = ioremap_nocache(res.start, resource_size(&res));
 
-	if (!vci_timer_virt_base)
-		panic("%s: failed to remap memory\n", of_node->full_name);
+	BUG_ON(!vci_timer_virt_base);
 
 	/* get the clock-frequency of the timer (and thus the system) */
 	clk_rate = vci_timer_get_clock(of_node);
 
-	if (!clk_rate)
-		panic("%s: failed to determine clock frequency\n",
-				of_node->full_name);
+	BUG_ON(!clk_rate);
 
 	/* disable timer */
 	__raw_writel(0, vci_timer_virt_base + VCI_TIMER_MODE);
@@ -183,5 +167,5 @@ static void __init vci_timer_init(struct device_node *of_node)
 	vci_timer_clocksource_init(clk_rate);
 	vci_timer_clockevent_init(irq, clk_rate);
 }
-CLOCKSOURCE_OF_DECLARE(vci_timer, "soclib,vci_timer", vci_timer_init);
 
+CLOCKSOURCE_OF_DECLARE(vci_timer, "soclib,vci_timer", vci_timer_init);
