@@ -21,14 +21,19 @@
  * Logical to physical CPU mapping
  */
 
-extern unsigned long __cpu_logical_map[NR_CPUS];
+extern int __cpu_logical_map[NR_CPUS];
 #define cpu_logical_map(cpu) __cpu_logical_map[cpu]
 
 
 /*
- * IPI functions
+ * IPI management
  */
 
 extern void handle_IPI(unsigned int);
+
+#define SMP_IPI_CALL(n) void (n)(const struct cpumask *mask)
+typedef SMP_IPI_CALL(smp_ipi_call_t);
+
+extern void set_smp_ipi_call(smp_ipi_call_t *);
 
 #endif /* _ASM_TSAR_SMP_H */

@@ -7,6 +7,7 @@
  *  Joël Porquet <joel.porquet@lip6.fr>
  */
 
+#include <linux/bitops.h>
 #include <linux/cpu.h>
 #include <linux/ftrace.h>
 #include <linux/init.h>
@@ -63,13 +64,16 @@ static inline void vci_xicu_mask(struct irq_data *d)
 		default:
 			if ((hwirq >= VCI_XICU_MAX_PER_CPU_IRQ) && hwirq <
 					(VCI_XICU_MAX_PER_CPU_IRQ +
-					 vci_xicu_hwi_count))
+					 vci_xicu_hwi_count)) {
+				raw_spin_lock(&vci_xicu_lock);
 				/* mask the specified HW IRQ for the targeted cpu */
 				__raw_writel(BIT(hwirq - VCI_XICU_MAX_PER_CPU_IRQ),
 						VCI_XICU_REG(XICU_MSK_HWI_DISABLE,
 							hwcpuid));
-			else
+				raw_spin_unlock(&vci_xicu_lock);
+			} else {
 				pr_warning("Cannot mask hwirq %ld\n", hwirq);
+			}
 			break;
 	}
 }
@@ -102,13 +106,16 @@ static inline void vci_xicu_unmask(struct irq_data *d)
 		default:
 			if ((hwirq >= VCI_XICU_MAX_PER_CPU_IRQ) &&
 					hwirq < (VCI_XICU_MAX_PER_CPU_IRQ +
-						vci_xicu_hwi_count))
+						vci_xicu_hwi_count)) {
+				raw_spin_lock(&vci_xicu_lock);
 				/* unmask the specified HW IRQ for the targeted cpu */
 				__raw_writel(BIT(hwirq - VCI_XICU_MAX_PER_CPU_IRQ),
 						VCI_XICU_REG(XICU_MSK_HWI_ENABLE,
 							hwcpuid));
-			else
+				raw_spin_unlock(&vci_xicu_lock);
+			} else {
 				pr_warning("Cannot unmask hwirq %ld\n", hwirq);
+			}
 			break;
 	}
 }
@@ -201,7 +208,7 @@ static struct irq_domain_ops vci_xicu_domain_ops = {
 };
 
 #ifdef CONFIG_SMP
-void vci_xicu_send_ipi(const struct cpumask *mask, unsigned long ipi)
+SMP_IPI_CALL(vci_xicu_send_ipi)
 {
 	int cpu;
 
@@ -209,10 +216,11 @@ void vci_xicu_send_ipi(const struct cpumask *mask, unsigned long ipi)
 	 * the ipi */
 	wmb();
 
-	/* send the ipi to all targeted cpus */
-	for_each_cpu(cpu, mask)
-		__raw_writel(ipi, VCI_XICU_REG(XICU_WTI_REG,
-					cpu_logical_map(cpu)));
+	/* send an IPI to all targeted cpus */
+	for_each_cpu(cpu, mask) {
+		int hwcpuid = cpu_logical_map(cpu);
+		__raw_writel(0, VCI_XICU_REG(XICU_WTI_REG, hwcpuid));
+	}
 }
 #endif
 
@@ -271,12 +279,12 @@ HANDLE_IRQ(vci_xicu_handle_irq)
 #ifdef CONFIG_SMP
 static irqreturn_t vci_xicu_ipi_interrupt(int irq, void *dev_id)
 {
-	unsigned int ipi_nr;
 	int hwcpuid = cpu_logical_map(smp_processor_id());
 
-	/* read the IPI value (it acks the IPI at the same time) */
-	ipi_nr = __raw_readl(VCI_XICU_REG(XICU_WTI_REG, hwcpuid));
-	handle_IPI(ipi_nr);
+	/* acknowledge the IPI */
+	__raw_readl(VCI_XICU_REG(XICU_WTI_REG, hwcpuid));
+
+	handle_IPI();
 
 	return IRQ_HANDLED;
 }
@@ -370,6 +378,9 @@ int __init vci_xicu_init(struct device_node *of_node, struct device_node *parent
 	vci_xicu_mask_init();
 
 #ifdef CONFIG_SMP
+	/* provide our callback for IPI function calls */
+	set_smp_ipi_call(vci_xicu_send_ipi);
+
 	/* create an irq association for IPI percpu irqs and provide an IRQ
 	 * handler */
 	vci_xicu_ipi_irq = irq_create_mapping(vci_xicu_irq_domain,
