@@ -59,7 +59,7 @@ ENTRY(kernel_entry)
 #endif
 
 	/*
-	 * initialize page global directory
+	 * initialize page global directory (swapper_pg_dir)
 	 *
 	 * map RAM from the start to the end of the kernel (_end):
 	 * - identity mapping at VA 0x0 for just after enabling the MMU (the
@@ -89,21 +89,9 @@ page_pde_offset = (PAGE_OFFSET >> (PGDIR_SHIFT - PGD_T_LOG2))
 	 * enable paging
 	 */
 
-mmu_mode_init = (MMU_MODE_INST_TLB | MMU_MODE_DATA_TLB | MMU_MODE_INST_CACHE | MMU_MODE_DATA_CACHE)
-ptpr_shift = (PTRS_PER_PGD_LOG2 + PGD_T_LOG2)
-
-	mtc2	$0, $10			/* sync all pending write operations */
-
-	la	t0, pa(swapper_pg_dir)
-	srl	t0, t0, ptpr_shift	/* pa(swapper_pg_dir) >> 13 */
-	mtc2	t0, $0			/* set PTPR (8KiB aligned) */
-
-	li	t0, mmu_mode_init	/* init mmu mode */
-	mtc2	t0, $1			/* enable MMU */
-
-	/* jump into VA space */
-	la	t0, va_jump		/* note we use VA address of symbol va_jump */
-	jr	t0
+	la	t0, pa(swapper_pg_dir)		/* physical address of the reference page table */
+	la	t1, va_jump			/* note we use VA address of symbol va_jump */
+	b	enable_paging
 va_jump:
 
 	/*
@@ -123,3 +111,31 @@ va_jump:
 	j	start_kernel
 
 ENDPROC(kernel_entry)
+
+/*
+ * Put the code where we jump from the initial 1:1 physical address space to
+ * the virtual address space in a special section (in prevision for SMP
+ * support).
+ *
+ * - t0 contains the physical address of the page table to use
+ * - t1 contains the _virtual_ address to return to upon completion
+ */
+	.pushsection	.idmap.text, "ax"
+ENTRY(enable_paging)
+
+mmu_mode_init = (MMU_MODE_INST_TLB | MMU_MODE_DATA_TLB | MMU_MODE_INST_CACHE | MMU_MODE_DATA_CACHE)
+ptpr_shift = (PTRS_PER_PGD_LOG2 + PGD_T_LOG2)
+
+	mtc2	$0, $10			/* sync all pending write operations */
+
+	srl	t0, t0, ptpr_shift	/* pg_dir >> 13 */
+	mtc2	t0, $0			/* set PTPR (8KiB aligned) */
+
+	li	t0, mmu_mode_init	/* init mmu mode */
+	mtc2	t0, $1			/* enable MMU */
+
+	/* jump into VA space */
+	jr	t1
+
+ENDPROC(enable_paging)
+	.popsection

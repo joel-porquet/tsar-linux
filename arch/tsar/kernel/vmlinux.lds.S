@@ -18,6 +18,12 @@
 
 #include <asm-generic/vmlinux.lds.h>
 
+#define IDMAP_TEXT				\
+	ALIGN_FUNCTION();			\
+	VMLINUX_SYMBOL(__idmap_text_start) = .;	\
+	*(.idmap.text)				\
+	VMLINUX_SYMBOL(__idmap_text_end) = .;
+
 #undef mips
 #define mips mips
 OUTPUT_ARCH(mips)
@@ -35,10 +41,10 @@ SECTIONS
 	/*
 	 * boot code
 	 */
-	HEAD_TEXT_SECTION
 	.head.text : AT(ADDR(.head.text) - LOAD_OFFSET) {
 		_text = .;
 		HEAD_TEXT
+		IDMAP_TEXT
 	}
 
 	/*
