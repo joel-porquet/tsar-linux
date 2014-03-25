@@ -21,7 +21,9 @@
  * Logical to physical CPU mapping
  */
 
-extern int __cpu_logical_map[NR_CPUS];
+#define INVALID_HWID	ULONG_MAX
+
+extern unsigned long __cpu_logical_map[NR_CPUS];
 #define cpu_logical_map(cpu) __cpu_logical_map[cpu]
 
 

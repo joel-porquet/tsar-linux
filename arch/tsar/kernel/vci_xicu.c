@@ -43,7 +43,9 @@ static inline void vci_xicu_mask(struct irq_data *d)
 	 * HWIs) */
 	irq_hw_number_t hwirq = irqd_to_hwirq(d);
 
-	int hwcpuid = cpu_logical_map(smp_processor_id());
+	unsigned long hwcpuid = cpu_logical_map(smp_processor_id());
+
+	BUG_ON(hwcpuid == INVALID_HWID);
 
 	switch (hwirq)
 	{
@@ -85,7 +87,9 @@ static inline void vci_xicu_unmask(struct irq_data *d)
 	 * HWIs) */
 	irq_hw_number_t hwirq = irqd_to_hwirq(d);
 
-	int hwcpuid = cpu_logical_map(smp_processor_id());
+	unsigned long hwcpuid = cpu_logical_map(smp_processor_id());
+
+	BUG_ON(hwcpuid == INVALID_HWID);
 
 	switch (hwirq)
 	{
@@ -218,7 +222,8 @@ SMP_IPI_CALL(vci_xicu_send_ipi)
 
 	/* send an IPI to all targeted cpus */
 	for_each_cpu(cpu, mask) {
-		int hwcpuid = cpu_logical_map(cpu);
+		unsigned long hwcpuid = cpu_logical_map(cpu);
+		BUG_ON(hwcpuid == INVALID_HWID);
 		__raw_writel(0, VCI_XICU_REG(XICU_WTI_REG, hwcpuid));
 	}
 }
@@ -232,10 +237,12 @@ SMP_IPI_CALL(vci_xicu_send_ipi)
 static asmlinkage __irq_entry
 HANDLE_IRQ(vci_xicu_handle_irq)
 {
-	int hwcpuid = cpu_logical_map(smp_processor_id());
+	unsigned long hwcpuid = cpu_logical_map(smp_processor_id());
 
 	unsigned int prio;
 	unsigned int virq;
+
+	BUG_ON(hwcpuid == INVALID_HWID);
 
 	do {
 		/* get the priority encoder for the current cpu */
@@ -279,7 +286,9 @@ HANDLE_IRQ(vci_xicu_handle_irq)
 #ifdef CONFIG_SMP
 static irqreturn_t vci_xicu_ipi_interrupt(int irq, void *dev_id)
 {
-	int hwcpuid = cpu_logical_map(smp_processor_id());
+	unsigned long hwcpuid = cpu_logical_map(smp_processor_id());
+
+	BUG_ON(hwcpuid == INVALID_HWID);
 
 	/* acknowledge the IPI */
 	__raw_readl(VCI_XICU_REG(XICU_WTI_REG, hwcpuid));

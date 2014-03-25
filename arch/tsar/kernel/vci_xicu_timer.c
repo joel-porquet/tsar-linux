@@ -34,7 +34,9 @@ static unsigned int vci_xicu_timer_irq;
 static int vci_xicu_timer_set_next_event(unsigned long delta,
 		struct clock_event_device *evt)
 {
-	int hwcpuid = cpu_logical_map(smp_processor_id());
+	unsigned long hwcpuid = cpu_logical_map(smp_processor_id());
+
+	BUG_ON(hwcpuid == INVALID_HWID);
 
 	/* setup timer for periodic ticks */
 	__raw_writel(0xffffffff, VCI_XICU_REG(XICU_PTI_PER, hwcpuid));
@@ -46,7 +48,9 @@ static int vci_xicu_timer_set_next_event(unsigned long delta,
 static void vci_xicu_timer_set_mode(enum clock_event_mode mode,
 		struct clock_event_device *evt)
 {
-	int hwcpuid = cpu_logical_map(smp_processor_id());
+	unsigned long hwcpuid = cpu_logical_map(smp_processor_id());
+
+	BUG_ON(hwcpuid == INVALID_HWID);
 
 	if (mode == CLOCK_EVT_MODE_PERIODIC)
 	{
@@ -65,7 +69,9 @@ static void vci_xicu_timer_set_mode(enum clock_event_mode mode,
 static irqreturn_t vci_xicu_timer_interrupt(int irq, void *dev_id)
 {
 	struct clock_event_device *evt = dev_id;
-	int hwcpuid = cpu_logical_map(smp_processor_id());
+	unsigned long hwcpuid = cpu_logical_map(smp_processor_id());
+
+	BUG_ON(hwcpuid == INVALID_HWID);
 
 	/* if one-shot, ack and deactivate the IRQ */
 	if (evt->mode == CLOCK_EVT_MODE_ONESHOT)
