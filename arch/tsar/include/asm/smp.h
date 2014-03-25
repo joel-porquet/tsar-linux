@@ -28,10 +28,19 @@ extern unsigned long __cpu_logical_map[NR_CPUS];
 
 
 /*
+ * Initial data for booting a secondary cpu
+ */
+
+struct secondary_data {
+	unsigned long sp;	/* stack pointer */
+	unsigned long gp;	/* global pointer */
+};
+
+/*
  * IPI management
  */
 
-extern void handle_IPI(unsigned int);
+extern void handle_IPI(void);
 
 #define SMP_IPI_CALL(n) void (n)(const struct cpumask *mask)
 typedef SMP_IPI_CALL(smp_ipi_call_t);

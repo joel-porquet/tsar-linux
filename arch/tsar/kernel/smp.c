@@ -7,6 +7,20 @@
  *  Joël Porquet <joel.porquet@lip6.fr>
  */
 
+#include <linux/cache.h>
+#include <linux/cpu.h>
+#include <linux/cpumask.h>
+#include <linux/delay.h>
+#include <linux/init.h>
+#include <linux/irq.h>
+#include <linux/mm.h>
+#include <linux/of.h>
+#include <linux/percpu.h>
+#include <linux/sched.h>
+#include <linux/smp.h>
+
+#include <asm/mmu_context.h>
+
 /*
  * IPI management
  */
@@ -100,12 +114,12 @@ void handle_IPI(void)
 	unsigned long ops;
 
 	while ((ops = xchg(&ipi->bits, 0)) != 0) {
-		unsigned long msg;
+		unsigned long msg = 0;
 
 		do {
-			msg = find_next_bit(ops, BITS_PER_LONG, msg + 1);
+			msg = find_next_bit(&ops, BITS_PER_LONG, msg + 1);
 
-			switch(msg) {
+			switch (msg) {
 				case IPI_RESCHEDULE:
 					scheduler_ipi();
 					break;
@@ -124,6 +138,266 @@ void handle_IPI(void)
 	}
 }
 
+
 /*
- * SMP management
+ * SMP management - secondary CPUs part
  */
+
+/*
+ * C boot code for the secondary CPUs (coming directly from kernel/head.S). At
+ * that point, a non-boot cpu is using its idle thread stack and current is set
+ * thanks to gp ($28) but the cpu is using a temporary page table (idmap).
+ */
+
+asmlinkage void __init secondary_start_kernel(void)
+{
+	struct mm_struct *mm = &init_mm;
+	unsigned int cpu = smp_processor_id();
+
+	pr_info("CPU%u: booting secondary processor\n", cpu);
+
+	/*
+	 * Switch away from the idmap page table and use the regular
+	 * swapper_pg_dir instead. Update proper mm_context.
+	 */
+	activate_mm(NULL, mm);
+	atomic_inc(&mm->mm_count);
+	current->active_mm = mm;
+	cpumask_set_cpu(cpu, mm_cpumask(mm));
+
+	/* cpu configuration (e.g. setup exception vector address) */
+	cpu_init();
+
+	preempt_disable();
+	trace_hardirqs_off();
+
+	/*
+	 * Execute the notifier_block functions that were set by the boot cpu
+	 * for the secondary cpus. Basically it means unmasking the hardware
+	 * IRQ sources of the cpu, enabling its IPI IRQ and initializing the
+	 * private timer.
+	 */
+	notify_cpu_starting(cpu);
+
+	/* now that that timer is up and running, calibrate the
+	 * cpu_loops_per_jiffy for that cpu */
+	calibrate_delay();
+
+	/* now the cpu can be considered as being online. this unlocks the boot
+	 * cpu who is still waiting for us */
+	set_cpu_online(cpu, true);
+
+	/* enable IRQs and start the idle thread */
+	local_irq_enable();
+	cpu_startup_entry(CPUHP_ONLINE);
+}
+
+
+/*
+ * SMP management - boot cpu part
+ * The functions are defined in the order they are called.
+ * start_kernel
+ * 	setup_arch
+ * 		smp_init_cpus*
+ * 	smp_prepare_boot_cpu*
+ * kernel_init
+ * 	kernel_init_freeable
+ * 		smp_prepare_cpus*
+ * 		smp_init
+ * 			cpu_up
+ * 				_cpu_up
+ * 					__cpu_up*
+ * 			smp_cpus_done*
+ */
+
+/*
+ * This function enumerates the possible cpus from the device tree and
+ * initializes the cpu logical map accordingly. It also initializes the cpu
+ * possible map.
+ */
+
+unsigned long __cpu_logical_map[NR_CPUS] = {
+	[0 ... NR_CPUS - 1] = INVALID_HWID /* all entries are invalid by default */
+};
+
+void __init smp_init_cpus(void)
+{
+	struct device_node *of_node = NULL;
+	unsigned long cpu, i;
+	bool bootcpu_valid = false;
+
+	/* initialize the first entry of the cpu logical map with the current
+	 * boot cpu */
+	cpu_logical_map(0) = read_c0_hwcpuid();
+
+	/* now we start with logical cpu #1 */
+	cpu = 1;
+
+	while ((of_node = of_find_node_by_type(of_node, "cpu"))) {
+		u32 cpuid_reg;
+
+		if (!of_property_read_u32(of_node, "reg", &cpuid_reg)) {
+			pr_err("%s: cannot reg property\n",
+					of_node->full_name);
+			goto next;
+		}
+
+		if (cpuid_reg & ~EBASE_CPUHWID) {
+			pr_err("%s: invalid reg property\n",
+					of_node->full_name);
+			goto next;
+		}
+
+		/* check the cpuid_reg is not a duplicate of an existing entry */
+		for (i = 1; (i < cpu) && (i < NR_CPUS); i++) {
+			if (cpu_logical_map(i) == cpuid_reg) {
+				pr_err("%s: duplicate reg property\n",
+						of_node->full_name);
+				goto next;
+			}
+		}
+
+		/* at some point, probably during the first loop, we will
+		 * encounter the of node that describes the boot cpu. keep
+		 * track of it. */
+		if (cpuid_reg == cpu_logical_map(0)) {
+			if (bootcpu_valid) {
+				pr_err("%s: duplicate bootcpu reg property\n",
+						of_node->full_name);
+				goto next;
+			}
+			bootcpu_valid = true;
+			/* no need to increment cpu in that case, the bootcpu
+			 * already uses the index #0 */
+			continue;
+		}
+
+		/* some more error checking */
+		if (cpu >= NR_CPUS)
+			goto next;
+
+		/* now we can register the discovered cpu node in the logical
+		 * map */
+		pr_debug("cpu logical map 0x%x\n", cpuid_reg);
+		cpu_logical_map(cpu) = cpuid_reg;
+next:
+		cpu++;
+	}
+
+	/* sanity checks */
+	if (cpu > NR_CPUS)
+		pr_warning("The number of cpus (%ld) in the DT is greater than"
+				"the configured number (%d)\n", cpu, NR_CPUS);
+
+	if (!bootcpu_valid) {
+		pr_err("The DT misses bootcpu node! Discard secondary cpus!\n");
+		return;
+	}
+
+	/* All the cpus added to the logical map can now be set as possible cpus */
+	for (i = 0; i < NR_CPUS; i++)
+	{
+		if (cpu_logical_map(i) != INVALID_HWID)
+			set_cpu_possible(i, true);
+	}
+}
+
+void __init smp_prepare_boot_cpu(void)
+{
+	/* nothing to do for the bootcpu with respect to SMP */
+}
+
+/*
+ * Cpu present map initialization
+ */
+
+void __init smp_prepare_cpus(unsigned int max_cpus)
+{
+	unsigned int ncpus = num_possible_cpus();
+
+	/* max_cpus comes from setup_max_cpus. setup_max_cpus is initialized to
+	 * be NR_CPUS but can be modified by arguments (nosmp and maxcpus=n) */
+	/* in either cases, we must check we are not trying to boot more cpus
+	 * than what we discovered in smp_init_cpus, with the device tree */
+	if (max_cpus > ncpus)
+		max_cpus = ncpus;
+
+	if (ncpus > 1 && max_cpus)
+		/* initialize the cpu present map, merely by copying the cpu
+		 * possible map */
+		init_cpu_present(cpu_possible_mask);
+}
+
+/*
+ * Boot the specified secondary cpu
+ */
+
+volatile unsigned long secondary_cpu_boot __cacheline_aligned = INVALID_HWID;
+
+struct secondary_data secondary_data __cacheline_aligned;
+
+int __cpu_up(unsigned int cpu, struct task_struct *idle)
+{
+	int ret = 0;
+	unsigned long timeout;
+	unsigned long sp;
+
+	/* compute the stack pointer from task idle */
+	sp = (unsigned long)task_stack_page(idle)
+		+ THREAD_SIZE - sizeof(struct pt_regs);
+
+	/* setup the secondary_data structure to tell the cpu where to find its
+	 * own stack pointer and global pointer */
+	secondary_data.sp = sp;
+	secondary_data.gp = (unsigned long)task_thread_info(idle);
+
+	/* setup the proper sp in idle */
+	task_thread_info(idle)->ksp = sp;
+
+	/* XXX: should we also setup current_thread_info_set[cpu]?
+	 * I don't think so because it must be set for user->kernel transitions
+	 * which will never happen here, since we are only in kernel land. It
+	 * will be set late, when we switch to another context for the first
+	 * time. Anyway, it does not cost much to set it, so do it! */
+	//current_thread_info_set[cpu] = task_thread_info(idle);
+
+	/* unlock cpu from spin wait and make it boot */
+	secondary_cpu_boot = cpu_logical_map(cpu);
+
+	/* force flushing writes in memory */
+	wmb();
+
+	/* wait 1s until the cpu is online */
+	timeout = jiffies + (1 * HZ);
+	while (time_before(jiffies, timeout)) {
+		if (cpu_online(cpu))
+			break;
+		udelay(10);
+	}
+
+	if (!cpu_online(cpu)) {
+		pr_crit("CPU%u: failed to come online\n", cpu);
+		ret = -EIO;
+	}
+
+	/* reset the secondary data */
+	secondary_cpu_boot = INVALID_HWID;
+	memset(&secondary_data, 0, sizeof(secondary_data));
+
+	return ret;
+}
+
+void __init smp_cpus_done(unsigned int max_cpus)
+{
+	pr_info("SMP: Total of %d processors activated.\n", num_online_cpus());
+}
+
+
+/*
+ * not supported
+ */
+
+int setup_profiling_timer(unsigned int multiplier)
+{
+	return -EINVAL;
+}

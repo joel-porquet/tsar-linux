@@ -111,6 +111,14 @@ void __init setup_arch(char **cmdline_p)
 	/* give boot_command_line back to init/main.c */
 	*cmdline_p = boot_command_line;
 
+#ifdef CONFIG_SMP
+	/* initialize cpu_logical_map according to the device tree */
+	/* we call this function now, to have an up-to-date cpu possible map
+	 * asap. it is useful later in init/main(), e.g. when calling
+	 * setup_nr_cpu_ids() */
+	smp_init_cpus();
+#endif
+
 #if defined(CONFIG_VT)
 	/* configure a virtual terminal */
 	conswitchp = &dummy_con;

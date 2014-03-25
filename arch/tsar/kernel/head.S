@@ -23,6 +23,10 @@
 
 __HEAD
 ENTRY(kernel_entry)
+	/*
+	 * All the cpus enter here. Non-boot cpus are quickly redirected to
+	 * the secondary entry point.
+	 */
 
 	/*
 	 * zero CP0_STATUS: kernel mode, interrupts disabled
@@ -32,6 +36,13 @@ ENTRY(kernel_entry)
 #ifdef CONFIG_TSAR_SOCLIB
 	/* if we're on the simulation platform, deactivate iss debugging */
 	mtc0	zero, CP0_DEBUG
+#endif
+
+#ifdef CONFIG_SMP
+	/* get the hardware cpuid to determine whether we are the boot cpu */
+	mfc0	t0, CP0_EBASE, 1
+	andi	t0, EBASE_CPUHWID	/* extract cpu hardware id */
+	bnez	t0, secondary_kernel_entry
 #endif
 
 	/*
@@ -133,3 +144,43 @@ ptpr_shift = (PTRS_PER_PGD_LOG2 + PGD_T_LOG2)
 
 ENDPROC(enable_paging)
 	.popsection
+
+#ifdef CONFIG_SMP
+ENTRY(secondary_kernel_entry)
+	/*
+	 * Entry point for non-boot cpus
+	 * - t0 contains the hardware cpuid
+	 */
+
+	/*
+	 * spin until our cpuid is called
+	 */
+	la	t1, pa(secondary_cpu_boot)
+spin_wait_boot:
+	lw	t2, 0(t1)
+	bne	t2, t0, spin_wait_boot
+
+	/*
+	 * enable paging
+	 */
+
+	lw	t0, pa(idmap_pg_dir)	/* physical address of the idmap page table */
+	la	t1, secondary_va_jump	/* note we use VA symbol */
+	b	enable_paging
+secondary_va_jump:
+
+	/*
+	 * setup kernel stack and global pointer
+	 */
+
+	la	t0, secondary_data
+	lw	sp, 0(t0)		/* get sp */
+	lw	gp, 4(t0)		/* get gp */
+
+	/*
+	 * jump into Linux (and into C code)
+	 */
+	j	secondary_start_kernel
+
+ENDPROC(secondary_kernel_entry)
+#endif
