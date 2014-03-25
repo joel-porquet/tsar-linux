@@ -86,7 +86,6 @@
 #define	 CAUSEB_BD	31 // Branch Delay slot
 #define	 CAUSEF_BD	(_AC(1, UL) <<  CAUSEB_CE)
 
-
 /* cp0 cause register, exception codes */
 #define	CAUSE_EXCCODE_INT	0
 #define	CAUSE_EXCCODE_ADEL	4
@@ -100,5 +99,8 @@
 #define	CAUSE_EXCCODE_OV	12
 #define	CAUSE_EXCCODE_TR	13
 #define	CAUSE_EXCCODE_FPE	15
+
+/* cp0 ebase register, hardware cpu id mask */
+#define EBASE_CPUHWID  0xFFF
 
 #endif /* _ASM_TSAR_MIPS32C0_REGS_H */
