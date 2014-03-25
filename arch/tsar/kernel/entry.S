@@ -26,21 +26,12 @@
 
 /*
  * general exception vector entry
- * (it will be copied away during init, that's why we place it in an .init
- * section that will get destroyed when init is done)
+ * following MIPS specifications, its address must be at offset 0x180 of a
+ * memory area aligned on a page.
  */
-__INIT
+	.balign PAGE_SIZE
+	.space	0x180
 ENTRY(general_exception_vector)
-	.set push
-	.set noat
-	.set noreorder
-	j	general_exception
-	nop
-	.set pop
-ENDPROC(general_exception_vector)
-__FINIT
-
-ENTRY(general_exception)
 	.set push
 	.set noat
 	mfc0	k1, CP0_CAUSE
@@ -48,7 +39,7 @@ ENTRY(general_exception)
 	lw	k0, exception_handlers(k1)
 	jr	k0
 	.set pop
-ENDPROC(general_exception)
+ENDPROC(general_exception_vector)
 
 /*
  * exception handlers:

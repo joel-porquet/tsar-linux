@@ -271,32 +271,38 @@ asmlinkage void do_tr(struct pt_regs *regs)
  * Exception/trap initialization
  */
 
-static void set_except_vector(int n, void *handler)
+/* This function is called by all the cpus during their boot.
+ * It configures them with the right exception vector address and enable
+ * certains system registers for user access.
+ */
+void __init cpu_init(void)
+{
+	/* set the new EBASE in the cpu */
+	write_c0_ebase(general_exception_vector);
+
+	/*
+	 * allow the usermode to access certain CP0 registers (cpunum, count,
+	 * userlocal/tls, etc.) using the rdhwr instruction
+	 */
+	write_c0_hwrena(HWRENAF_ULR | HWRENAF_CCRES | HWRENAF_CC |
+			HWRENAF_CPUNUM);
+}
+
+static void __init set_except_vector(int n, void *handler)
 {
 	exception_handlers[n] = (unsigned long)handler;
 }
 
+/*
+ * This function is only called once, by the boot cpu.
+ * It installs the different exception handlers, and call the trap
+ * initialization for the boot cpu.
+ */
 void __init trap_init(void)
 {
 	unsigned int i;
-	void __iomem *ebase_virt;
 
-	/* allocate enough space for the general exception vector:
-	 * - it must be located at offset 0x180 of a memory area aligned on
-	 *   0x1000
-	 * - there's only two instructions in this vector (a jump and its
-	 *   associated delay slot) */
-	ebase_virt = __va(memblock_alloc(0x180 + 8, 0x1000));
-	pr_debug("trap_init: allocate general exception vector at @0x%p\n",
-			ebase_virt);
-
-	/* copy the general exception vector into this new area */
-	memcpy(ebase_virt + 0x180, &general_exception_vector, 8);
-
-	/* set the new EBASE in the cpu */
-	write_c0_ebase(ebase_virt);
-
-	/* initialize exception handlers */
+	/* install exception handlers */
 	for (i = 0; i < 32; i++)
 		set_except_vector(i, handle_reserved);
 
@@ -318,10 +324,6 @@ void __init trap_init(void)
 
 	//set_except_vector(CAUSE_EXCCODE_FPE, handle_fpe);
 
-	/*
-	 * allow the usermode to access certain CP0 registers (cpunum, count,
-	 * userlocal/tls, etc.) using the rdhwr instruction
-	 */
-	write_c0_hwrena(HWRENAF_ULR | HWRENAF_CCRES | HWRENAF_CC |
-			HWRENAF_CPUNUM);
+	/* configure the boot cpu */
+	cpu_init();
 }
