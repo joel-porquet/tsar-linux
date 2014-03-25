@@ -97,15 +97,15 @@ va_jump:
 	/*
 	 * setup kernel stack
 	 */
-	la	$28, init_thread_union
+	la	gp, init_thread_union
 	/* set the sp after a full pt_regs */
 	li	sp, THREAD_SIZE - PT_SIZE
-	addu	sp, sp, $28
+	addu	sp, sp, gp
 
 	/* setup initial kstack */
 	/* note: current_thread_info_set[0] is already setup statically,
 	   important: assert(current_cpu == 0)! */
-	sw	sp, TI_KSP($28)
+	sw	sp, TI_KSP(gp)
 
 	/* start linux! */
 	j	start_kernel
