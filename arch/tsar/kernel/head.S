@@ -126,13 +126,13 @@ ENTRY(enable_paging)
 mmu_mode_init = (MMU_MODE_INST_TLB | MMU_MODE_DATA_TLB | MMU_MODE_INST_CACHE | MMU_MODE_DATA_CACHE)
 ptpr_shift = (PTRS_PER_PGD_LOG2 + PGD_T_LOG2)
 
-	mtc2	$0, $10			/* sync all pending write operations */
+	mtc2	$0, MMU_SYNC		/* sync all pending write operations */
 
 	srl	t0, t0, ptpr_shift	/* pg_dir >> 13 */
-	mtc2	t0, $0			/* set PTPR (8KiB aligned) */
+	mtc2	t0, MMU_PTPR		/* set PTPR (8KiB aligned) */
 
 	li	t0, mmu_mode_init	/* init mmu mode */
-	mtc2	t0, $1			/* enable MMU */
+	mtc2	t0, MMU_MODE		/* enable MMU */
 
 	/* jump into VA space */
 	jr	t1
