@@ -334,25 +334,16 @@ void __init smp_prepare_cpus(unsigned int max_cpus)
 
 volatile unsigned long secondary_cpu_boot __cacheline_aligned = INVALID_HWID;
 
-struct secondary_data secondary_data __cacheline_aligned;
+volatile unsigned long secondary_cpu_gp __cacheline_aligned;
 
 int __cpu_up(unsigned int cpu, struct task_struct *idle)
 {
 	int ret = 0;
 	unsigned long timeout;
-	unsigned long sp;
 
-	/* compute the stack pointer from task idle */
-	sp = (unsigned long)task_stack_page(idle)
-		+ THREAD_SIZE - sizeof(struct pt_regs);
-
-	/* setup the secondary_data structure to tell the cpu where to find its
-	 * own stack pointer and global pointer */
-	secondary_data.sp = sp;
-	secondary_data.gp = (unsigned long)task_thread_info(idle);
-
-	/* setup the proper sp in idle */
-	task_thread_info(idle)->ksp = sp;
+	/* setup the secondary_cpu_gp to tell the cpu where to find its global
+	 * pointer (i.e. its idle thread_info structure) */
+	secondary_cpu_gp = (unsigned long)task_thread_info(idle);
 
 	/* XXX: should we also setup current_thread_info_set[cpu]?
 	 * I don't think so because it must be set for user->kernel transitions
@@ -382,7 +373,7 @@ int __cpu_up(unsigned int cpu, struct task_struct *idle)
 
 	/* reset the secondary data */
 	secondary_cpu_boot = INVALID_HWID;
-	memset(&secondary_data, 0, sizeof(secondary_data));
+	secondary_cpu_gp = 0;
 
 	return ret;
 }

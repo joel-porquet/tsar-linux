@@ -170,12 +170,14 @@ spin_wait_boot:
 secondary_va_jump:
 
 	/*
-	 * setup kernel stack and global pointer
+	 * get global pointer (i.e. thread_info structure) and setup kernel
+	 * stack accordingly
 	 */
 
-	la	t0, secondary_data
-	lw	sp, 0(t0)		/* get sp */
-	lw	gp, 4(t0)		/* get gp */
+	la	t0, secondary_cpu_gp
+	lw	gp, 0(t0)
+
+	SETUP_KSTACK
 
 	/*
 	 * jump into Linux (and into C code)

@@ -28,15 +28,6 @@ extern unsigned long __cpu_logical_map[NR_CPUS];
 
 
 /*
- * Initial data for booting a secondary cpu
- */
-
-struct secondary_data {
-	unsigned long sp;	/* stack pointer */
-	unsigned long gp;	/* global pointer */
-};
-
-/*
  * IPI management
  */
 
