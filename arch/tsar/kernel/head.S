@@ -95,17 +95,11 @@ page_pde_offset = (PAGE_OFFSET >> (PGDIR_SHIFT - PGD_T_LOG2))
 va_jump:
 
 	/*
-	 * setup kernel stack
+	 * setup global pointer and kernel stack
 	 */
 	la	gp, init_thread_union
-	/* set the sp after a full pt_regs */
-	li	sp, THREAD_SIZE - PT_SIZE
-	addu	sp, sp, gp
 
-	/* setup initial kstack */
-	/* note: current_thread_info_set[0] is already setup statically,
-	   important: assert(current_cpu == 0)! */
-	sw	sp, TI_KSP(gp)
+	SETUP_KSTACK
 
 	/* start linux! */
 	j	start_kernel

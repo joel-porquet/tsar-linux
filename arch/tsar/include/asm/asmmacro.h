@@ -7,16 +7,39 @@
 
 #ifdef __ASSEMBLY__
 
+/*
+ * SETUP_KSTACK macro
+ * Given a certain global pointer (that points to a thread_info structure),
+ * compute the kernel stack pointer accordingly (i.e.  after a full pt_regs)
+ * and save in the thread_info structure.
+ */
+
+#define SETUP_KSTACK                       \
+	li	sp, THREAD_SIZE - PT_SIZE ;\
+	addu	sp, sp, gp                ;\
+	sw	sp, TI_KSP(gp)            ;
+
+
+/*
+ * GET_SAVED_KSP macro
+ * must return the saved KSP of the current cpu in k1
+ */
+
 #ifdef CONFIG_SMP
 
 #else /* !CONFIG_SMP */
+
 #define GET_SAVED_KSP                        \
 	la	k0, current_thread_info_set ;\
 	lw	k0, (k0)                    ;\
 	lw	k1, TI_KSP(k0)              ;
 
-
 #endif /* CONFIG_SMP */
+
+
+/*
+ * IRQ enabling/disabling
+ */
 
 #define LOCAL_IRQ_DISABLE       \
 	mfc0	t0, CP0_STATUS ;\
@@ -28,6 +51,11 @@
 	mfc0	t0, CP0_STATUS ;\
 	ori	t0, t0, 1      ;\
 	mtc0	t0, CP0_STATUS ;
+
+
+/*
+ * State switching: CLI/STI/KMODE
+ */
 
 #define STATE_MASK_NOIE (ST0_KSU | ST0_EXL | ST0_ERL)
 #define STATE_MASK_IE (STATE_MASK_NOIE | ST0_IE)
@@ -55,6 +83,10 @@
 	or	t0, t1              ;\
 	xori	t0, STATE_MASK_NOIE ;\
 	mtc0	t0, CP0_STATUS      ;
+
+/*
+ * Context saving/restoring
+ */
 
 #define SAVE_ALL                                                 \
 	.set push                                               ;\
