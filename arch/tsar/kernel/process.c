@@ -24,7 +24,6 @@
  *
  * Important: in a SMP configuration, we assume cpu0 is the boot cpu
  */
-// XXX: should we use a PER_CPU declaration instead?
 struct thread_info *current_thread_info_set[NR_CPUS] = { &init_thread_info, };
 
 /*
