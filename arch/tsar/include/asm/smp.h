@@ -38,4 +38,14 @@ typedef SMP_IPI_CALL(smp_ipi_call_t);
 
 extern void set_smp_ipi_call(smp_ipi_call_t *);
 
+extern void arch_send_call_function_single_ipi(int cpu);
+extern void arch_send_call_function_ipi_mask(const struct cpumask *mask);
+
+
+/*
+ * Init prototype
+ */
+
+extern void smp_init_cpus(void);
+
 #endif /* _ASM_TSAR_SMP_H */

@@ -214,6 +214,9 @@ asmlinkage void __init secondary_start_kernel(void)
  * This function enumerates the possible cpus from the device tree and
  * initializes the cpu logical map accordingly. It also initializes the cpu
  * possible map.
+ * Ideally, we could reuse the smp_setup_processor_id() prototype but
+ * unfortunately it is called before setup_arch() when the device tree is not
+ * yet unflattened...
  */
 
 unsigned long __cpu_logical_map[NR_CPUS] = {

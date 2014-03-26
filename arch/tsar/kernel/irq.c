@@ -7,6 +7,7 @@
  *  Joël Porquet <joel.porquet@lip6.fr>
  */
 
+#include <linux/cpu.h>
 #include <linux/ftrace.h>
 #include <linux/init.h>
 #include <linux/interrupt.h>
@@ -70,7 +71,7 @@ void __init set_handle_irq(handle_irq_t *new)
 	handle_irq_icu = new;
 }
 
-void __init mips32_icu_init(void)
+void mips32_icu_init(void)
 {
 	/* unmask all IRQ sources of the mips32 */
 	set_c0_status(ST0_IM);

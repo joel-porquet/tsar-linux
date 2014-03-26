@@ -17,6 +17,7 @@
 #include <linux/mm.h>
 #include <linux/printk.h>
 #include <linux/seq_file.h>
+#include <linux/smp.h>
 
 #include <asm/io.h>
 #include <asm/sections.h>

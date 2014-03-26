@@ -38,4 +38,7 @@ typedef struct {
 	volatile unsigned int lock;
 } arch_rwlock_t;
 
+/* init value: rw is unlocked */
+#define __ARCH_RW_LOCK_UNLOCKED { 0 }
+
 #endif /* _ASM_TSAR_SPINLOCK_TYPES_H */

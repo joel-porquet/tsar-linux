@@ -1,6 +1,10 @@
 #ifndef _ASM_TSAR_ATOMIC_H
 #define _ASM_TSAR_ATOMIC_H
 
+#include <linux/types.h>
+
+#include <asm/barrier.h>
+
 #ifdef CONFIG_SMP
 
 /*
