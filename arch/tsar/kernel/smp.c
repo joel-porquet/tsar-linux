@@ -219,19 +219,11 @@ asmlinkage void __init secondary_start_kernel(void)
  * yet unflattened...
  */
 
-unsigned long __cpu_logical_map[NR_CPUS] = {
-	[0 ... NR_CPUS - 1] = INVALID_HWID /* all entries are invalid by default */
-};
-
 void __init smp_init_cpus(void)
 {
 	struct device_node *of_node = NULL;
 	unsigned long cpu, i;
 	bool bootcpu_valid = false;
-
-	/* initialize the first entry of the cpu logical map with the current
-	 * boot cpu */
-	cpu_logical_map(0) = read_c0_hwcpuid();
 
 	/* now we start with logical cpu #1 */
 	cpu = 1;

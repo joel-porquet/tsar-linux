@@ -22,6 +22,7 @@
 #include <asm/io.h>
 #include <asm/sections.h>
 #include <asm/setup.h>
+#include <asm/smp_map.h>
 
 static struct resource kernel_code_resource = { .name = "Kernel code", };
 static struct resource kernel_data_resource = { .name = "Kernel data", };
@@ -29,6 +30,10 @@ static struct resource kernel_bss_resource = { .name = "Kernel bss", };
 
 extern struct boot_param_header __dtb_start; /* defined by Linux */
 void *dtb_start = &__dtb_start;
+
+unsigned long __cpu_logical_map[NR_CPUS] = {
+	[0 ... NR_CPUS - 1] = INVALID_HWID /* all entries are invalid by default */
+};
 
 static void __init resource_init(void)
 {
@@ -111,6 +116,11 @@ void __init setup_arch(char **cmdline_p)
 
 	/* give boot_command_line back to init/main.c */
 	*cmdline_p = boot_command_line;
+
+	/* initialize the first entry of the cpu logical map with the current
+	 * boot cpu (it allows to use SMP code when on monocpu - e.g. in the
+	 * xicu driver */
+	cpu_logical_map(0) = read_c0_hwcpuid();
 
 #ifdef CONFIG_SMP
 	/* initialize cpu_logical_map according to the device tree */

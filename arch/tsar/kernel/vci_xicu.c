@@ -16,9 +16,10 @@
 #include <linux/irqchip.h>
 #include <linux/of_address.h>
 #include <linux/printk.h>
+#include <linux/smp.h>
 
 #include <asm/io.h>
-#include <asm/smp.h>
+#include <asm/smp_map.h>
 
 #include "vci_xicu.h"
 

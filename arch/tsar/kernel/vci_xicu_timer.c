@@ -17,6 +17,7 @@
 #include <linux/of.h>
 
 #include <asm/io.h>
+#include <asm/smp_map.h>
 
 #include "vci_xicu.h"
 

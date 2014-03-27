@@ -18,16 +18,6 @@
 
 
 /*
- * Logical to physical CPU mapping
- */
-
-#define INVALID_HWID	ULONG_MAX
-
-extern unsigned long __cpu_logical_map[NR_CPUS];
-#define cpu_logical_map(cpu) __cpu_logical_map[cpu]
-
-
-/*
  * IPI management
  */
 
