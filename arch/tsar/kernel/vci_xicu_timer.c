@@ -104,13 +104,13 @@ static void vci_xicu_cpu_timer_init(struct clock_event_device *evt)
 	enable_percpu_irq(evt->irq, 0);
 }
 
+#ifdef CONFIG_SMP
 static void vci_xicu_cpu_timer_stop(struct clock_event_device *evt)
 {
 	evt->set_mode(CLOCK_EVT_MODE_UNUSED, evt);
 	disable_percpu_irq(evt->irq);
 }
 
-#ifdef CONFIG_SMP
 static int vci_xicu_timer_notify(struct notifier_block *self,
 		unsigned long action, void *hcpu)
 {
