@@ -239,8 +239,8 @@ void __init smp_init_cpus(void)
 	while ((of_node = of_find_node_by_type(of_node, "cpu"))) {
 		u32 cpuid_reg;
 
-		if (!of_property_read_u32(of_node, "reg", &cpuid_reg)) {
-			pr_err("%s: cannot reg property\n",
+		if (of_property_read_u32(of_node, "reg", &cpuid_reg)) {
+			pr_err("%s: cannot find reg property\n",
 					of_node->full_name);
 			goto next;
 		}
