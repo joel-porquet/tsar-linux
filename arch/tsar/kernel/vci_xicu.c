@@ -207,9 +207,27 @@ static int vci_xicu_map(struct irq_domain *d, unsigned int virq,
 	return 0;
 }
 
+static int vci_xicu_xlate(struct irq_domain *d, struct device_node *ctrlr,
+		const u32 *intspec, unsigned int intsize,
+		unsigned long *out_hwirq, unsigned int *out_type)
+{
+	int ret;
+
+	/* get the regular mapping from the device tree */
+	ret = irq_domain_xlate_onecell(d, ctrlr,
+			intspec, intsize,
+			out_hwirq, out_type);
+	if (!ret)
+		/* add the number of "virtual" irqs per cpu (i.e. IPI and
+		 * private timer) */
+		*out_hwirq += VCI_XICU_MAX_PER_CPU_IRQ;
+
+	return ret;
+}
+
 static struct irq_domain_ops vci_xicu_domain_ops = {
 	.map	= vci_xicu_map,
-	.xlate	= irq_domain_xlate_onecell,
+	.xlate	= vci_xicu_xlate,
 };
 
 #ifdef CONFIG_SMP
