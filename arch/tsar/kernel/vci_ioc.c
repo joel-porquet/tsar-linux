@@ -260,6 +260,7 @@ static int vci_ioc_pf_remove(struct platform_device *pdev)
 
 static const struct of_device_id vci_ioc_pf_of_ids[] = {
 	{ .compatible = "soclib,vci_block_device_tsar_v4" },
+	{ .compatible = "soclib,vci_block_device_tsar_v5" },
 	{}
 };
 MODULE_DEVICE_TABLE(of, vci_ioc_pf_of_ids);
