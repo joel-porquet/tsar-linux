@@ -1,5 +1,5 @@
 /*
- * DTS file for TSAR monocpu on SoCLib
+ * DTS file for TSARV4 monocpu on SoCLib
  *
  * Includes the skeleton and specializes it:
  *  - use of vci_icu
@@ -8,7 +8,7 @@
 
 /dts-v1/;
 
-/include/ "tsar_soclib_skeleton.dtsi"
+/include/ "tsar_skeleton_soclib.dtsi"
 
 / {
 	model = "UPMC/LIP6/SoC - Tsar v4 monocpu SoCLib";
@@ -48,6 +48,8 @@
 		};
 
 		blockdevice {
+			compatible = "tsar,vci_block_device_tsar_v4";
+			reg = <0x1c000000 0x20>;
 			interrupts = <2>;
 		};
 	};

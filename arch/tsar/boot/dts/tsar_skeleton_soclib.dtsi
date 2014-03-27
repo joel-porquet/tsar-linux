@@ -3,7 +3,7 @@
  */
 
 / {
-	compatible = "tsar,v4_soclib";
+	compatible = "tsar,soclib";
 	#address-cells = <1>;
 	#size-cells = <1>;
 	interrupt-parent = <&icu>;
@@ -27,7 +27,7 @@
 	};
 
 	vci {
-		compatible = "soclib,vgmn", "simple-bus";
+		compatible = "simple-bus";
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges; // identity mapping between root addressing and vci network
@@ -48,8 +48,6 @@
 		};
 
 		blockdevice {
-			compatible = "tsar,vci_block_device_tsar_v4";
-			reg = <0x1c000000 0x20>;
 		};
 
 		/*

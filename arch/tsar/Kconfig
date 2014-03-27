@@ -55,9 +55,9 @@ menu "Processor/system type and features"
 
 choice
 	prompt "TSAR system type"
-	default ARCH_TSAR_MONO_SOCLIB
+	default ARCH_TSARV5_MONO_SOCLIB
 
-config ARCH_TSAR_MONO_SOCLIB
+config ARCH_TSARV4_MONO_SOCLIB
 	bool "Tsar monocpu v4"
 	select ARCH_FLATMEM_ENABLE
 	select SOCLIB_VCI_ICU
@@ -66,8 +66,16 @@ config ARCH_TSAR_MONO_SOCLIB
 	select SOCLIB_VCI_MTTY
 	select TSAR_SOCLIB
 
-config ARCH_TSAR_MULTI_SOCLIB
-	bool "Tsar monocpu v4"
+config ARCH_TSARV5_MONO_SOCLIB
+	bool "Tsar monocpu v5"
+	select ARCH_FLATMEM_ENABLE
+	select SOCLIB_VCI_XICU
+	select SOCLIB_VCI_IOC
+	select SOCLIB_VCI_MTTY
+	select TSAR_SOCLIB
+
+config ARCH_TSARV5_MULTI_SOCLIB
+	bool "Tsar multicpu v5"
 	select ARCH_FLATMEM_ENABLE
 	select SOCLIB_VCI_XICU
 	select SOCLIB_VCI_IOC
@@ -78,7 +86,7 @@ endchoice
 
 config SMP
 	bool "Symmetric multi-processing support"
-	depends on ARCH_TSAR_MULTI_SOCLIB
+	depends on ARCH_TSARV5_MULTI_SOCLIB
 
 config NR_CPUS
 	int "Maximum number of CPUs" if SMP

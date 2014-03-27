@@ -4,7 +4,7 @@
 # more details.
 #
 
-KBUILD_DEFCONFIG := tsar_monocpu_soclib_defconfig
+KBUILD_DEFCONFIG := tsarv5_monocpu_soclib_defconfig
 # are we cross-compiling?
 ifneq ($(SUBARCH), $(ARCH))
 	ifeq ($(CROSS_COMPILE),)
