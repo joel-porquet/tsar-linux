@@ -413,7 +413,9 @@ int __init vci_xicu_init(struct device_node *of_node, struct device_node *parent
 	 * handler */
 	vci_xicu_ipi_irq = irq_create_mapping(vci_xicu_irq_domain,
 			VCI_XICU_IPI_PER_CPU_IRQ);
-	BUG_ON(request_percpu_irq(vci_xicu_ipi_irq, vci_xicu_ipi_interrupt,
+	BUG_ON(request_irq(vci_xicu_ipi_irq, vci_xicu_ipi_interrupt,
+				IRQF_PERCPU | IRQF_NO_SUSPEND |
+				IRQF_FORCE_RESUME | IRQF_NO_THREAD,
 				"vci_xicu_per_cpu_ipi",
 				NULL));
 
