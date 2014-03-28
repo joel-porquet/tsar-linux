@@ -20,6 +20,7 @@
  */
 
 pgd_t *idmap_pg_dir;
+phys_addr_t idmap_pg_dir_phys;
 
 static void idmap_set_pmd(pgd_t *pgd, unsigned long addr)
 {
@@ -67,6 +68,9 @@ static int __init init_static_idmap(void)
 
 	if (!idmap_pg_dir)
 		return -ENOMEM;
+
+	/* we need a physical address for non-boot cpus */
+	idmap_pg_dir_phys = __pa(idmap_pg_dir);
 
 	/* add some identity mapping to cover the function that switches from
 	 * PA to VA (see kernel/head.S) */

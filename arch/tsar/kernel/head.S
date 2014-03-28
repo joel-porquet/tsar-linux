@@ -164,8 +164,8 @@ spin_wait_boot:
 	 * enable paging
 	 */
 
-	lw	t0, pa(idmap_pg_dir)	/* physical address of the idmap page table */
-	la	t1, secondary_va_jump	/* note we use VA symbol */
+	lw	t0, pa(idmap_pg_dir_phys)	/* physical address of the idmap page table */
+	la	t1, secondary_va_jump		/* note we use VA symbol */
 	b	enable_paging
 secondary_va_jump:
 
