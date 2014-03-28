@@ -61,7 +61,7 @@
 		};
 
 		timer {
-			compatible = "soclib,xicu_vci_timer";
+			compatible = "soclib,vci_xicu_timer";
 		};
 
 		blockdevice {
