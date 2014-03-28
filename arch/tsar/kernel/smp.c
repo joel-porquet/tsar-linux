@@ -20,6 +20,7 @@
 #include <linux/smp.h>
 
 #include <asm/mmu_context.h>
+#include <asm/smp_map.h>
 
 /*
  * IPI management
