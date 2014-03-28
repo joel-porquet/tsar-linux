@@ -131,8 +131,9 @@ void handle_IPI(void)
 					ipi_cpu_stop(cpu);
 					break;
 				default:
-					pr_crit("Unknown IPI on CPU%u: %lu\n",
-							cpu, msg);
+					if (msg < BITS_PER_LONG)
+						pr_crit("Unknown IPI on CPU%u: %lu\n",
+								cpu, msg);
 					break;
 			}
 		} while (msg < BITS_PER_LONG);
