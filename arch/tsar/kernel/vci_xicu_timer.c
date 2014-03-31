@@ -39,7 +39,7 @@ static int vci_xicu_timer_set_next_event(unsigned long delta,
 
 	BUG_ON(hwcpuid == INVALID_HWID);
 
-	/* setup timer for periodic ticks */
+	/* setup timer for one shot */
 	__raw_writel(0xffffffff, VCI_XICU_REG(XICU_PTI_PER, hwcpuid));
 	__raw_writel(delta, VCI_XICU_REG(XICU_PTI_VAL, hwcpuid));
 
@@ -74,12 +74,18 @@ static irqreturn_t vci_xicu_timer_interrupt(int irq, void *dev_id)
 
 	BUG_ON(hwcpuid == INVALID_HWID);
 
-	/* if one-shot, ack and deactivate the IRQ */
 	if (evt->mode == CLOCK_EVT_MODE_ONESHOT)
+	{
+		/* if one-shot, ack and deactivate the IRQ */
+		pr_debug("CPU%ld: one-shot time INT at cycle %ld\n",
+				hwcpuid, read_c0_count());
 		__raw_writel(0, VCI_XICU_REG(XICU_PTI_PER, hwcpuid));
-	else
+	} else {
 		/* otherwise just ack the IRQ */
+		pr_debug("CPU%ld: periodic time INT at cycle %ld\n",
+				hwcpuid, read_c0_count());
 		__raw_readl(VCI_XICU_REG(XICU_PTI_ACK, hwcpuid));
+	}
 
 	evt->event_handler(evt);
 

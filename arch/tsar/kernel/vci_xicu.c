@@ -53,6 +53,7 @@ static inline void vci_xicu_mask(struct irq_data *d)
 #ifdef CONFIG_SMP
 		case VCI_XICU_IPI_PER_CPU_IRQ:
 			/* mask the IPI IRQ for the targeted cpu */
+			pr_debug("CPU%ld: mask IPI\n", hwcpuid);
 			__raw_writel(BIT(hwcpuid),
 					VCI_XICU_REG(XICU_MSK_WTI_DISABLE,
 						hwcpuid));
@@ -60,6 +61,7 @@ static inline void vci_xicu_mask(struct irq_data *d)
 #endif
 		case VCI_XICU_PTI_PER_CPU_IRQ:
 			/* mask the PTI IRQ for the targeted cpu */
+			pr_debug("CPU%ld: mask PTI\n", hwcpuid);
 			__raw_writel(BIT(hwcpuid),
 					VCI_XICU_REG(XICU_MSK_PTI_DISABLE,
 						hwcpuid));
@@ -68,6 +70,8 @@ static inline void vci_xicu_mask(struct irq_data *d)
 			if ((hwirq >= VCI_XICU_MAX_PER_CPU_IRQ) && hwirq <
 					(VCI_XICU_MAX_PER_CPU_IRQ +
 					 vci_xicu_hwi_count)) {
+				pr_debug("CPU%ld: mask HWI %ld\n", hwcpuid,
+						hwirq - VCI_XICU_MAX_PER_CPU_IRQ);
 				raw_spin_lock(&vci_xicu_lock);
 				/* mask the specified HW IRQ for the targeted cpu */
 				__raw_writel(BIT(hwirq - VCI_XICU_MAX_PER_CPU_IRQ),
@@ -97,6 +101,7 @@ static inline void vci_xicu_unmask(struct irq_data *d)
 #ifdef CONFIG_SMP
 		case VCI_XICU_IPI_PER_CPU_IRQ:
 			/* unmask the IPI IRQ for the targeted cpu */
+			pr_debug("CPU%ld: unmask IPI\n", hwcpuid);
 			__raw_writel(BIT(hwcpuid),
 					VCI_XICU_REG(XICU_MSK_WTI_ENABLE,
 						hwcpuid));
@@ -104,6 +109,7 @@ static inline void vci_xicu_unmask(struct irq_data *d)
 #endif
 		case VCI_XICU_PTI_PER_CPU_IRQ:
 			/* unmask the PTI IRQ for the targeted cpu */
+			pr_debug("CPU%ld: unmask PTI\n", hwcpuid);
 			__raw_writel(BIT(hwcpuid),
 					VCI_XICU_REG(XICU_MSK_PTI_ENABLE,
 						hwcpuid));
@@ -112,6 +118,8 @@ static inline void vci_xicu_unmask(struct irq_data *d)
 			if ((hwirq >= VCI_XICU_MAX_PER_CPU_IRQ) &&
 					hwirq < (VCI_XICU_MAX_PER_CPU_IRQ +
 						vci_xicu_hwi_count)) {
+				pr_debug("CPU%ld: unmask HWI %ld\n", hwcpuid,
+						hwirq - VCI_XICU_MAX_PER_CPU_IRQ);
 				raw_spin_lock(&vci_xicu_lock);
 				/* unmask the specified HW IRQ for the targeted cpu */
 				__raw_writel(BIT(hwirq - VCI_XICU_MAX_PER_CPU_IRQ),
@@ -141,6 +149,10 @@ static int vci_xicu_set_affinity(struct irq_data *d,
 	/* let us check that per-cpu irqs do not migrate */
 	if (hwirq < VCI_XICU_MAX_PER_CPU_IRQ)
 		return -EINVAL;
+
+	pr_debug("Migrate HWI %ld to CPU%ld\n",
+			hwirq - VCI_XICU_MAX_PER_CPU_IRQ,
+			cpu_logical_map(cpuid));
 
 	raw_spin_lock(&vci_xicu_lock);
 
@@ -245,6 +257,7 @@ SMP_IPI_CALL(vci_xicu_send_ipi)
 	/* send an IPI to all targeted cpus */
 	for_each_cpu(cpu, mask) {
 		unsigned long hwcpuid = cpu_logical_map(cpu);
+		pr_debug("Send IPI to CPU%ld\n", hwcpuid);
 		BUG_ON(hwcpuid == INVALID_HWID);
 		__raw_writel(0, VCI_XICU_REG(XICU_WTI_REG, hwcpuid));
 	}
@@ -314,6 +327,8 @@ static irqreturn_t vci_xicu_ipi_interrupt(int irq, void *dev_id)
 
 	/* acknowledge the IPI */
 	__raw_readl(VCI_XICU_REG(XICU_WTI_REG, hwcpuid));
+
+	pr_debug("CPU%ld: received an IPI\n", hwcpuid);
 
 	handle_IPI();
 

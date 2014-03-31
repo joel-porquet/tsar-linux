@@ -65,6 +65,9 @@ static void ipi_send_msg(const struct cpumask *mask, enum ipi_msg_type msg)
 	int cpu;
 	struct ipi_data *ipi;
 
+	pr_debug("CPU%ld: sending IPI #%d\n", cpu_logical_map(smp_processor_id()),
+			(int)msg);
+
 	local_irq_save(flags);
 
 	/* add the message to send to the list */
@@ -81,6 +84,9 @@ static void ipi_send_msg(const struct cpumask *mask, enum ipi_msg_type msg)
 
 void smp_send_reschedule(int cpu)
 {
+	pr_debug("CPU%ld: sending IPI_RESCHEDULE to CPU%ld\n",
+			cpu_logical_map(smp_processor_id()),
+			cpu_logical_map(cpu));
 	ipi_send_msg(cpumask_of(cpu), IPI_RESCHEDULE);
 }
 
@@ -90,16 +96,23 @@ void smp_send_stop(void)
 	cpumask_copy(&targets, cpu_online_mask);
 	/* do not include us in the mask */
 	cpumask_clear_cpu(smp_processor_id(), &targets);
+	pr_debug("CPU%ld: sending IPI_CPU_STOP\n",
+			cpu_logical_map(smp_processor_id()));
 	ipi_send_msg(&targets, IPI_CPU_STOP);
 }
 
 void arch_send_call_function_single_ipi(int cpu)
 {
+	pr_debug("CPU%ld: sending IPI_CALL_FUNC to CPU%ld\n",
+			cpu_logical_map(smp_processor_id()),
+			cpu_logical_map(cpu));
 	ipi_send_msg(cpumask_of(cpu), IPI_CALL_FUNC);
 }
 
 void arch_send_call_function_ipi_mask(const struct cpumask *mask)
 {
+	pr_debug("CPU%ld: sending IPI_CALL_FUNC to some CPUs\n",
+			cpu_logical_map(smp_processor_id()));
 	ipi_send_msg(mask, IPI_CALL_FUNC);
 }
 
@@ -129,12 +142,18 @@ void handle_IPI(void)
 
 			switch (msg) {
 				case IPI_RESCHEDULE:
+					pr_debug("CPU%ld: received IPI_RESCHEDULE\n",
+							cpu_logical_map(cpu));
 					scheduler_ipi();
 					break;
 				case IPI_CALL_FUNC:
+					pr_debug("CPU%ld: received IPI_CALL_FUNC\n",
+							cpu_logical_map(cpu));
 					generic_smp_call_function_interrupt();
 					break;
 				case IPI_CPU_STOP:
+					pr_debug("CPU%ld: received IPI_CPU_STOP\n",
+							cpu_logical_map(cpu));
 					ipi_cpu_stop(cpu);
 					break;
 				default:
@@ -163,8 +182,6 @@ asmlinkage void __init secondary_start_kernel(void)
 	struct mm_struct *mm = &init_mm;
 	unsigned int cpu = smp_processor_id();
 
-	pr_info("CPU%u: booting secondary processor\n", cpu);
-
 	/*
 	 * Switch away from the idmap page table and use the regular
 	 * swapper_pg_dir instead. Update proper mm_context.
@@ -176,6 +193,8 @@ asmlinkage void __init secondary_start_kernel(void)
 
 	/* cpu configuration (e.g. setup exception vector address) */
 	cpu_init();
+
+	pr_info("CPU%u: booting secondary processor\n", cpu);
 
 	preempt_disable();
 	trace_hardirqs_off();
