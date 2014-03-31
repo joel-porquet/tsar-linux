@@ -31,10 +31,17 @@
  * - IPI_RESCHEDULE: ask them to reschedule
  * - IPI_CALL_FUNC: ask them to execute a function
  * - IPI_CPU_STOP: ask them to stop
+ *
  * We do not need IPI_TIMER because all cpus already have a private timer.
+ *
+ * We need a IPI_NOP of value 0 though: if not (and IPI_RESCHEDULE == 0), then
+ * it causes an infinite loop in handle_IPI (or we should explicitely write
+ * msg++ after processing the rescheduling).
  */
+
 enum ipi_msg_type {
-	IPI_RESCHEDULE,
+	IPI_NOP = 0,
+	IPI_RESCHEDULE = 1,
 	IPI_CALL_FUNC,
 	IPI_CPU_STOP,
 };
