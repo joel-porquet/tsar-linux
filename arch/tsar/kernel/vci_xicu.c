@@ -178,7 +178,10 @@ static int vci_xicu_map(struct irq_domain *d, unsigned int virq,
 	switch (hwirq) {
 #ifdef CONFIG_SMP
 		case VCI_XICU_IPI_PER_CPU_IRQ:
-			/* percpu handler without percpu_devid */
+			/* the percpu_devid used here is a fake one, but it is
+			 * the only way to declare IPI IRQs as percpu IRQ and
+			 * benefit from the kernel API */
+			irq_set_percpu_devid(virq);
 			irq_set_chip_and_handler(virq, &vci_xicu_controller,
 					handle_percpu_irq);
 			break;
@@ -340,6 +343,8 @@ void __init vci_xicu_mask_init(void)
 }
 
 #ifdef CONFIG_SMP
+static int __percpu *fake_ipi_dev;
+
 static unsigned int vci_xicu_ipi_irq;
 
 static void vci_xicu_cpu_ipi_init(void)
@@ -413,11 +418,13 @@ int __init vci_xicu_init(struct device_node *of_node, struct device_node *parent
 	 * handler */
 	vci_xicu_ipi_irq = irq_create_mapping(vci_xicu_irq_domain,
 			VCI_XICU_IPI_PER_CPU_IRQ);
-	BUG_ON(request_irq(vci_xicu_ipi_irq, vci_xicu_ipi_interrupt,
-				IRQF_PERCPU | IRQF_NO_SUSPEND |
-				IRQF_FORCE_RESUME | IRQF_NO_THREAD,
+
+	/* fake percpu cookie to get percpu IRQs for IPIs */
+	fake_ipi_dev = alloc_percpu(int);
+
+	BUG_ON(request_percpu_irq(vci_xicu_ipi_irq, vci_xicu_ipi_interrupt,
 				"vci_xicu_per_cpu_ipi",
-				NULL));
+				fake_ipi_dev));
 
 	/* Immediately enable the IPI irq for the boot cpu */
 	vci_xicu_cpu_ipi_init();
