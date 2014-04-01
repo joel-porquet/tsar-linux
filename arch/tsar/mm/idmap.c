@@ -39,7 +39,7 @@ static void identity_mapping_add(pgd_t *pgd, const char *text_start,
 	addr = __pa(text_start);
 	end = __pa(text_end);
 
-	pr_info("Setting up static identity mapping for 0x%x - 0x%x\n",
+	pr_debug("Setting up static identity mapping for 0x%x - 0x%x\n",
 			addr, end);
 
 	pgd += pgd_index(addr);
