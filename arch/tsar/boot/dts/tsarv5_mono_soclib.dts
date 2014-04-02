@@ -43,11 +43,13 @@
 			compatible = "soclib,vci_xicu_timer";
 		};
 
+		/*
 		blockdevice {
 			compatible = "tsar,vci_block_device_tsar_v5";
 			reg = <0x1c000000 0x40>;
 			interrupts = <1>;
 		};
+		*/
 
 		memcache {
 			compatible = "tsar,memcache_v5";
