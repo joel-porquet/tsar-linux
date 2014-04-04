@@ -10,3 +10,5 @@ header-y += ptrace.h
 header-y += sigcontext.h
 header-y += unistd.h
 
+# generic headers
+generic-y += setup.h

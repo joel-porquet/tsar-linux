@@ -2,7 +2,7 @@
 #define _ASM_TSAR_SETUP_H
 
 /* defines COMMAND_LINE_SIZE */
-#include <asm-generic/setup.h>
+#include <uapi/asm/setup.h>
 
 /*
  * prototypes for at boot time (e.g. setup_arch())
