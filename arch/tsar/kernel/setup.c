@@ -160,7 +160,7 @@ static int c_show(struct seq_file *m, void *v)
 {
 	int i;
 
-	seq_printf(m, "Processor\t: MIPS32\n");
+	seq_printf(m, "Processor\t: TSAR-MIPS32\n");
 
 	for_each_online_cpu(i) {
 #ifdef CONFIG_SMP
