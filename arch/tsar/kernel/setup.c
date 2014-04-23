@@ -55,6 +55,7 @@ static void __init resource_init(void)
 		/* XXX: should we discard highmem memory banks as in MIPS? */
 		struct resource *res;
 		res = __va(memblock_alloc(sizeof(struct resource), SMP_CACHE_BYTES));
+		memset(res, 0, sizeof(struct resource));
 
 		/* signal the memory bank to the resource manager */
 		res->name = "System RAM";
