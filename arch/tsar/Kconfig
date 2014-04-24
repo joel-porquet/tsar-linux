@@ -58,7 +58,7 @@ choice
 	default ARCH_TSARV5_MONO_SOCLIB
 
 config ARCH_TSARV4_MONO_SOCLIB
-	bool "Tsar monocpu v4"
+	bool "Tsar monocpu v4 soclib"
 	select ARCH_FLATMEM_ENABLE
 	select SOCLIB_VCI_ICU
 	select SOCLIB_VCI_TIMER
@@ -67,7 +67,7 @@ config ARCH_TSARV4_MONO_SOCLIB
 	select TSAR_SOCLIB
 
 config ARCH_TSARV5_MONO_SOCLIB
-	bool "Tsar monocpu v5"
+	bool "Tsar monocpu v5 soclib"
 	select ARCH_FLATMEM_ENABLE
 	select SOCLIB_VCI_XICU
 	select SOCLIB_VCI_IOC
@@ -75,18 +75,34 @@ config ARCH_TSARV5_MONO_SOCLIB
 	select TSAR_SOCLIB
 
 config ARCH_TSARV5_MULTI_SOCLIB
-	bool "Tsar multicpu v5"
+	bool "Tsar multicpu v5 soclib"
 	select ARCH_FLATMEM_ENABLE
 	select SOCLIB_VCI_XICU
 	select SOCLIB_VCI_IOC
 	select SOCLIB_VCI_MTTY
 	select TSAR_SOCLIB
 
+config ARCH_TSARV5_MONO_FPGA
+	bool "Tsar monocpu v5 fpga"
+	select ARCH_FLATMEM_ENABLE
+	select SOCLIB_VCI_XICU
+	select SOCLIB_VCI_IOC
+	select SOCLIB_VCI_MTTY
+	select TSAR_FPGA
+
+config ARCH_TSARV5_MULTI_FPGA
+	bool "Tsar multicpu v5 fpga"
+	select ARCH_FLATMEM_ENABLE
+	select SOCLIB_VCI_XICU
+	select SOCLIB_VCI_IOC
+	select SOCLIB_VCI_MTTY
+	select TSAR_FPGA
+
 endchoice
 
 config SMP
 	bool "Symmetric multi-processing support"
-	depends on ARCH_TSARV5_MULTI_SOCLIB
+	depends on ARCH_TSARV5_MULTI_SOCLIB || ARCH_TSARV5_MULTI_FPGA
 
 config NR_CPUS
 	int "Maximum number of CPUs" if SMP
