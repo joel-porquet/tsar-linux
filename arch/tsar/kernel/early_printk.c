@@ -27,6 +27,10 @@ static void early_tty_putchar(const char c)
 static void early_tty_write(struct console *con, const char *s, unsigned n)
 {
 	while (n-- && *s) {
+#ifdef CONFIG_TSAR_FPGA
+		if (*s == '\n')
+			early_tty_putchar('\r');
+#endif
 		early_tty_putchar(*s);
 		s++;
 	}
