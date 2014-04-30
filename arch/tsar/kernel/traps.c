@@ -8,10 +8,17 @@
  */
 
 #include <linux/init.h>
+#include <linux/kallsyms.h>
+#include <linux/kdb.h>
+#include <linux/kdebug.h>
+#include <linux/kgdb.h>
 #include <linux/memblock.h>
 #include <linux/sched.h>
+#include <linux/spinlock.h>
+#include <linux/uaccess.h>
 
 #include <asm/mips32c0.h>
+#include <asm/branch.h>
 #include <asm/mmuc2.h>
 #include <asm/ptrace.h>
 #include <asm/traps.h>
@@ -22,9 +29,100 @@ unsigned long exception_handlers[32];
  * Support functions for status printing
  */
 
+static void show_backtrace(unsigned long _sp)
+{
+	/* make sure the stack pointer is aligned on a 8 bytes boundary */
+	unsigned long *sp = (unsigned long *)(_sp & ~3);
+	unsigned long addr;
+
+	printk("Call Trace:");
+#ifdef CONFIG_KALLSYMS
+	printk("\n");
+#endif
+
+	while (!kstack_end(sp)) {
+		unsigned long __user *p =
+			(unsigned long __user *)(unsigned long)sp++;
+		if (__get_user(addr, p)) {
+			printk(" (Bad stack address)");
+			break;
+		}
+		if (__kernel_text_address(addr)) {
+			print_ip_sym(addr);
+		}
+	}
+	printk("\n");
+}
+
+static void show_stacktrace(unsigned long _sp)
+{
+	/* make sure the stack pointer is aligned on a 8 bytes boundary */
+	unsigned long *sp = (unsigned long *)(_sp & ~3);
+	const int field = 2 * sizeof(unsigned long);
+	long stackdata;
+	int i;
+
+	printk("Stack:");
+	i = 0;
+	while ((unsigned long) sp & (PAGE_SIZE - 1)) {
+		unsigned long __user *p =
+			(unsigned long __user *)(unsigned long)sp++;
+		if (i && ((i % (64 / field)) == 0))
+			printk("\n       ");
+		if (i > 39) {
+			printk(" ...");
+			break;
+		}
+
+		if (__get_user(stackdata, p)) {
+			printk(" (Bad stack address)");
+			break;
+		}
+
+		printk(" %0*lx", field, stackdata);
+		i++;
+	}
+	printk("\n");
+	show_backtrace(_sp);
+}
+
 void show_stack(struct task_struct *task, unsigned long *sp)
 {
-	printk("Show stack!\n");
+	unsigned long _sp = 0;
+	const register unsigned long current_sp asm ("sp");
+
+	if (sp) {
+		_sp = (unsigned long)sp;
+	} else {
+		if (task && task != current) {
+			_sp = task_pt_regs(task)->regs[29];
+#ifdef CONFIG_KGDB_KDB
+		} else if (atomic_read(&kgdb_active) != -1
+				&& kdb_current_regs) {
+			_sp = kdb_current_regs->regs[29];
+#endif
+		} else {
+			_sp = current_sp;
+		}
+	}
+	show_stacktrace(_sp);
+}
+
+static void show_code(unsigned long *pc)
+{
+	long i;
+
+	printk("\nCode:");
+
+	for (i = -3; i < 6; i++) {
+		unsigned long insn;
+		if (__get_user(insn, pc + i)) {
+			printk(" (Bad address in epc)\n");
+			break;
+		}
+		printk("%c%08lx%c", (i ? ' ' : '<'),
+				insn, (i ? ' ' : '>'));
+	}
 }
 
 static void __show_regs(const struct pt_regs *regs)
@@ -91,33 +189,97 @@ static void __show_regs(const struct pt_regs *regs)
 
 	printk("Cause : %08lx\n", cause);
 
-	cause = (cause & CAUSEF_EXCCODE) >> CAUSEB_EXCCODE;
-
 	printk("PrId  : %08lx\n", read_c0_prid());
 }
 
+/* short version */
 void show_regs(struct pt_regs *regs)
 {
-	__show_regs((struct pt_regs *)regs);
+	__show_regs(regs);
+}
+
+/* long version */
+void show_registers(struct pt_regs *regs)
+{
+	unsigned long tls;
+	const int field = 2 * sizeof(unsigned long);
+
+	show_regs(regs);
+	//print_modules();
+	printk("Process %s (pid: %d, threadinfo=%p, task=%p, tls=%0*lx)\n",
+	       current->comm, current->pid, current_thread_info(), current,
+	      field, current_thread_info()->tp_value);
+
+	tls = read_c0_userlocal();
+	if (tls != current_thread_info()->tp_value)
+		printk("*HwTLS: %0*lx\n", field, tls);
+
+	show_stacktrace(regs->regs[29]);
+	show_code((unsigned long __user *) regs->cp0_epc);
+	printk("\n");
 }
 
 /*
  * Support functions for dying...
  */
 
-void die(const char *str, struct pt_regs *regs)
+static int regs_to_trapnr(struct pt_regs *regs)
 {
+	return cause_exccode(regs->cp0_cause);
+}
+
+static DEFINE_RAW_SPINLOCK(die_lock);
+
+void __noreturn die(const char *str, struct pt_regs *regs)
+{
+	static int die_counter;
+	int sig = SIGSEGV;
+
+	oops_enter();
+
+	if (notify_die(DIE_OOPS, str, regs, 0, regs_to_trapnr(regs),
+				SIGSEGV) == NOTIFY_STOP)
+		sig = 0;
+
 	console_verbose();
-	pr_emerg("\n%s\n", str);
-	show_regs(regs);
-	do_exit(SIGSEGV);
+	raw_spin_lock_irq(&die_lock);
+	bust_spinlocks(1);
+
+	pr_emerg("\n%s[#%d]:\n", str, ++die_counter);
+	show_registers(regs);
+
+	bust_spinlocks(0);
+	add_taint(TAINT_DIE, LOCKDEP_NOW_UNRELIABLE);
+	raw_spin_unlock_irq(&die_lock);
+	oops_exit();
+
+	if (in_interrupt())
+		panic("Fatal exception in interrupt");
+	if (panic_on_oops)
+		panic("Fatal exception");
+
+	do_exit(sig);
 }
 
 void die_if_kernel(const char *str, struct pt_regs *regs)
 {
-	if (user_mode(regs))
+	if (!user_mode(regs))
+		die(str, regs);
+}
+
+/*
+ * Breakpoints and traps
+ */
+
+static void do_trap_or_bp(struct pt_regs *regs, unsigned long code,
+		const char *str)
+{
+	if (notify_die(DIE_OOPS, str, regs, code, regs_to_trapnr(regs),
+				SIGTRAP) == NOTIFY_STOP)
 		return;
-	die(str, regs);
+
+	die_if_kernel("Trap/Breakpoint instruction in kernel code", regs);
+	force_sig(SIGTRAP, current);
 }
 
 /*
@@ -127,16 +289,15 @@ void die_if_kernel(const char *str, struct pt_regs *regs)
 asmlinkage void do_reserved(struct pt_regs *regs)
 {
 	unsigned long ex_code;
-	ex_code = (regs->cp0_cause & CAUSEF_EXCCODE) >> CAUSEB_EXCCODE;
-	pr_debug("do_reserved: ex_code=%ld (this should never happen!)\n",
+	ex_code = regs_to_trapnr(regs);
+	show_regs(regs);
+	panic("do_reserved: ex_code=%ld (this should never happen!)\n",
 			ex_code);
-	/* let's really die, since this event should never happen */
-	die("do_reserved exception", regs);
 }
 
 asmlinkage void do_ade(struct pt_regs *regs)
 {
-	printk("do_ade: epc=0x%08lx, bvaddr=0x%08lx\n",
+	pr_alert("do_ade: epc=0x%08lx, bvaddr=0x%08lx\n",
 			regs->cp0_epc, regs->cp0_badvaddr);
 	die_if_kernel("do_ade in kernel", regs);
 	force_sig(SIGBUS, current);
@@ -177,6 +338,15 @@ asmlinkage void do_ibe(struct pt_regs *regs)
 			break;
 	}
 
+	pr_alert("Instruction bus error, epc=%08lx, ra=%08lx\n",
+			regs->cp0_epc, regs->regs[31]);
+	pr_alert("IBE: ptpr=0x%08lx, ietr=0x%08lx, ibvar=0x%08lx\n",
+			mmu_ptpr, mmu_ietr, mmu_ibvar);
+
+	if (notify_die(DIE_OOPS, "instruction bus error", regs, 0,
+				regs_to_trapnr(regs), SIGBUS) == NOTIFY_STOP)
+		return;
+
 	die_if_kernel("do_ibe in kernel", regs);
 	force_sig(SIGBUS, current);
 }
@@ -216,14 +386,32 @@ asmlinkage void do_dbe(struct pt_regs *regs)
 			break;
 	}
 
+	pr_alert("Data bus error: epc=0x%08lx, ra=0x%08lx\n",
+			regs->cp0_epc, regs->regs[31]);
+	pr_alert("DBE: ptpr=0x%08lx, detr=0x%08lx, dbvar=0x%08lx\n",
+			mmu_ptpr, mmu_detr, mmu_dbvar);
+
+	if (notify_die(DIE_OOPS, "data bus error", regs, 0,
+				regs_to_trapnr(regs), SIGBUS) == NOTIFY_STOP)
+		return;
+
 	die_if_kernel("do_dbe in kernel", regs);
 	force_sig(SIGBUS, current);
 }
 
 asmlinkage void do_bp(struct pt_regs *regs)
 {
-	die_if_kernel("do_bp in kernel", regs);
-	force_sig(SIGTRAP, current);
+	unsigned long opcode, bcode;
+
+	/* get the instruction to get the breakpoint code */
+	if (__get_user(opcode, (unsigned long __user *)exception_epc(regs))) {
+		force_sig(SIGSEGV, current);
+		return;
+	}
+
+	/* breakpoint instructions include a the code field (25:6) */
+	bcode = ((opcode >> 6) & ((1 << 20) - 1));
+	do_trap_or_bp(regs, bcode, "breakpoint");
 }
 
 asmlinkage void do_ri(struct pt_regs *regs)
@@ -231,8 +419,12 @@ asmlinkage void do_ri(struct pt_regs *regs)
 	unsigned long epc;
 	unsigned long bd;
 	epc = regs->cp0_epc;
-	bd = (regs->cp0_cause & CAUSEF_BD) >> CAUSEB_BD;
+	bd = cause_bd(regs->cp0_cause);
 	pr_debug("do_ri: epc=0x%08lx, bd=%ld\n", epc, bd);
+
+	if (notify_die(DIE_OOPS, "reserved instruction", regs, 0,
+				regs_to_trapnr(regs), SIGILL) == NOTIFY_STOP)
+		return;
 
 	die_if_kernel("do_ri in kernel", regs);
 	force_sig(SIGILL, current);
@@ -241,7 +433,7 @@ asmlinkage void do_ri(struct pt_regs *regs)
 asmlinkage void do_cpu(struct pt_regs *regs)
 {
 	unsigned long cpid;
-	cpid = (regs->cp0_cause & CAUSEF_CE) >> CAUSEB_CE;
+	cpid = cause_ce(regs->cp0_cause);
 	pr_debug("do_cpu: cpid=%ld\n", cpid);
 
 	die_if_kernel("do_cpu in kernel", regs);
@@ -263,8 +455,21 @@ asmlinkage void do_ov(struct pt_regs *regs)
 
 asmlinkage void do_tr(struct pt_regs *regs)
 {
-	die_if_kernel("do_tr in kernel", regs);
-	force_sig(SIGTRAP, current);
+	unsigned long opcode, tcode;
+
+	if (__get_user(opcode, (unsigned long __user *)exception_epc(regs))) {
+		force_sig(SIGSEGV, current);
+		return;
+	}
+
+	if (!(opcode & 0xfc000000))
+		/* trap operations with a code field (15:6) */
+		tcode = ((opcode >> 6) & ((1 << 10) - 1));
+	else
+		/* immediate trap operations without any code field */
+		tcode = 0;
+
+	do_trap_or_bp(regs, tcode, "trap");
 }
 
 /*

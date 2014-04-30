@@ -14,6 +14,7 @@ config TSAR
 	select GENERIC_STRNLEN_USER
 	#select HAVE_ARCH_JUMP_LABEL # should we implement this? see "mips/kernel/jump_label.c"
 	select HAVE_ARCH_TRACEHOOK # user_regset_view API in ptrace
+	select HAVE_ARCH_KGDB
 	select HAVE_MEMBLOCK
 	select ARCH_WANT_FRAME_POINTERS
 	select IRQ_DOMAIN

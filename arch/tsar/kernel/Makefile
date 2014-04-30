@@ -4,6 +4,8 @@ obj-y += entry.o irq.o process.o ptrace.o reboot.o setup.o signal.o sys_call_tab
 
 obj-$(CONFIG_EARLY_PRINTK) += early_printk.o
 
+obj-$(CONFIG_KGDB) += kgdb.o
+
 obj-$(CONFIG_SMP) += smp.o
 
 obj-$(CONFIG_SOCLIB_VCI_ICU) += vci_icu.o
