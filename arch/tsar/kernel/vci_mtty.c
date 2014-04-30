@@ -72,10 +72,8 @@ static void vci_tty_do_write(unsigned int line, const char *buf, unsigned count)
 	spin_lock_irqsave(&tty->lock, irq_flags);
 
 	while (count-- && *buf) {
-#ifdef CONFIG_TSAR_FPGA
 		if (*buf == '\n')
 			vci_tty_do_putchar(tty, '\r');
-#endif
 		vci_tty_do_putchar(tty, *buf);
 		buf++;
 	}
