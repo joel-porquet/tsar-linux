@@ -103,4 +103,16 @@
 /* cp0 ebase register, hardware cpu id mask */
 #define EBASE_CPUHWID  0xFFF
 
+#ifndef __ASSEMBLY__
+/* cause register accessors */
+#define cause_exccode(x) \
+	(((x) & CAUSEF_EXCCODE) >> CAUSEB_EXCCODE)
+#define cause_ip(x) \
+	(((x) & CAUSEF_IP) >> CAUSEB_IP)
+#define cause_ce(x) \
+	(((x) & CAUSEF_CE) >> CAUSEB_CE)
+#define cause_bd(x) \
+	(((x) & CAUSEF_BD) >> CAUSEB_BD)
+#endif
+
 #endif /* _ASM_TSAR_MIPS32C0_REGS_H */
