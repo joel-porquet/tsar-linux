@@ -13,6 +13,7 @@
 #include <linux/ioport.h>
 #include <linux/module.h>
 #include <linux/platform_device.h>
+#include <linux/serial_core.h>
 #include <linux/slab.h>
 #include <linux/tty.h>
 #include <linux/tty_flip.h>
@@ -180,13 +181,46 @@ static int vci_tty_chars_in_buffer(struct tty_struct *tty_st)
 	return vci_tty_do_ischar(tty);
 }
 
+#ifdef CONFIG_CONSOLE_POLL
+static int vci_tty_poll_init(struct tty_driver *driver, int line, char *options)
+{
+	/* nothing to do */
+	return 0;
+}
+
+static int vci_tty_poll_get_char(struct tty_driver *driver, int line)
+{
+	struct tty_port *port = driver->ports[line];
+	struct vci_tty_data *tty = container_of(port, struct vci_tty_data, port);
+
+	if (!vci_tty_do_ischar(tty))
+		return NO_POLL_CHAR;
+
+	return vci_tty_do_getchar(tty);
+}
+
+static void vci_tty_poll_put_char(struct tty_driver *driver, int line, char ch)
+{
+	struct tty_port *port = driver->ports[line];
+	struct vci_tty_data *tty = container_of(port, struct vci_tty_data, port);
+
+	vci_tty_do_putchar(tty, ch);
+}
+#endif
+
 static const struct tty_operations vci_tty_ops = {
+	.install = vci_tty_install,
 	.open = vci_tty_open,
 	.close = vci_tty_close,
 	.hangup = vci_tty_hangup,
 	.write = vci_tty_write,
 	.write_room = vci_tty_write_room,
 	.chars_in_buffer = vci_tty_chars_in_buffer,
+#ifdef CONFIG_CONSOLE_POLL
+	.poll_init = vci_tty_poll_init,
+	.poll_get_char = vci_tty_poll_get_char,
+	.poll_put_char = vci_tty_poll_put_char,
+#endif
 };
 
 /* tty port operations */
