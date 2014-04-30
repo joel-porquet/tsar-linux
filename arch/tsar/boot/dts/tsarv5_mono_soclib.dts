@@ -21,6 +21,9 @@
 		/* this is for maximum debug */
 		/* bootargs = "ignore_loglevel initcall_debug"; */
 
+		/* for enabling kgdb/kdb */
+		/* bootargs = "kgdboc=ttyVTTY0 kgdbwait"; */
+
 		/* display console in both framebuffer and tty (the last one
 		 * becomes the default one) */
 		bootargs = "console=tty0 console=ttyVTTY0 earlyprintk";
