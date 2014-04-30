@@ -130,9 +130,18 @@ static irqreturn_t vci_tty_interrupt(int irq, void *dev_id)
 }
 
 /* tty operations */
-static int vci_tty_open(struct tty_struct *tty_st, struct file *filp)
+static int vci_tty_install(struct tty_driver *driver, struct tty_struct *tty_st)
 {
 	struct vci_tty_data *tty = &vci_ttys[tty_st->index];
+
+	tty_st->driver_data = tty;
+
+	return tty_port_install(&tty->port, driver, tty_st);
+}
+
+static int vci_tty_open(struct tty_struct *tty_st, struct file *filp)
+{
+	struct vci_tty_data *tty = tty_st->driver_data;
 
 	if (!tty->dev)
 		return -ENODEV;
@@ -142,7 +151,7 @@ static int vci_tty_open(struct tty_struct *tty_st, struct file *filp)
 
 static void vci_tty_close(struct tty_struct *tty_st, struct file *filp)
 {
-	struct vci_tty_data *tty = &vci_ttys[tty_st->index];
+	struct vci_tty_data *tty = tty_st->driver_data;
 
 	if (tty->dev)
 		tty_port_close(&tty->port, tty_st, filp);
