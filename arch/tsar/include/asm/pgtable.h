@@ -98,20 +98,23 @@ typedef unsigned long pteval_t;
 #define __PAGE_KERNEL \
 	(__PAGE_KERNEL_BASE | _PAGE_CACHEABLE | _PAGE_EXECUTABLE)
 
+#define __PAGE_USER \
+	(__PAGE_BASE | _PAGE_USER | _PAGE_CACHEABLE)
+
 #define PAGE_NONE \
 	__pgprot(__PAGE_BASE)
 #define PAGE_READONLY \
-	__pgprot(__PAGE_BASE | _PAGE_USER)
+	__pgprot(__PAGE_USER)
 #define PAGE_READONLY_EXEC \
-	__pgprot(__PAGE_BASE | _PAGE_USER | _PAGE_EXECUTABLE)
+	__pgprot(__PAGE_USER | _PAGE_EXECUTABLE)
 #define PAGE_SHARED \
-	__pgprot(__PAGE_BASE | _PAGE_USER | _PAGE_WRITABLE)
+	__pgprot(__PAGE_USER | _PAGE_WRITABLE)
 #define PAGE_SHARED_EXEC \
-	__pgprot(__PAGE_BASE | _PAGE_USER | _PAGE_WRITABLE | _PAGE_EXECUTABLE)
+	__pgprot(__PAGE_USER | _PAGE_WRITABLE | _PAGE_EXECUTABLE)
 #define PAGE_COPY \
-	__pgprot(__PAGE_BASE | _PAGE_USER)
+	__pgprot(__PAGE_USER)
 #define PAGE_COPY_EXEC \
-	__pgprot(__PAGE_BASE | _PAGE_USER | _PAGE_EXECUTABLE)
+	__pgprot(__PAGE_USER | _PAGE_EXECUTABLE)
 
 #define PAGE_KERNEL \
 	__pgprot(__PAGE_KERNEL)
