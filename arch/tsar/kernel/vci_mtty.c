@@ -51,7 +51,10 @@ static struct vci_tty_data *vci_ttys;
 
 static char vci_tty_do_ischar(struct vci_tty_data *tty)
 {
-	return __raw_readl(tty->virt_base + VCI_TTY_STATUS) ? 1 : 0;
+	/* with the VHDL model, there are other meaniful bits in
+	 * VCI_TTY_STATUS. We should only test the LSB here.
+	 * It should transparently work for systemc simulations as well. */
+	return __raw_readl(tty->virt_base + VCI_TTY_STATUS) & 0x1 ? 1 : 0;
 }
 
 static char vci_tty_do_getchar(struct vci_tty_data *tty)
