@@ -97,6 +97,17 @@ typedef elf_fpreg_t elf_fpregset_t[ELF_NFPREG];
 })
 
 /*
+ * Set READ_IMPLIES_EXEC if the binary does not specifically say otherwise
+ */
+#define elf_read_implies_exec(ex, stk)	\
+({					\
+	int __res = 0;			\
+	if (stk != EXSTACK_DISABLE_X)	\
+		__res = 1;		\
+	__res;				\
+})
+
+/*
  * These are used to set parameters in the core dumps.
  */
 #define ELF_CLASS	ELFCLASS32
