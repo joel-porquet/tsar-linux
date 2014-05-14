@@ -60,43 +60,32 @@ choice
 
 config ARCH_TSARV4_MONO_SOCLIB
 	bool "Tsar monocpu v4 soclib"
+	select TSAR_V4
 	select ARCH_FLATMEM_ENABLE
-	select SOCLIB_VCI_ICU
-	select SOCLIB_VCI_TIMER
-	select SOCLIB_VCI_IOC
-	select SOCLIB_VCI_MTTY
 	select TSAR_SOCLIB
 
 config ARCH_TSARV5_MONO_SOCLIB
 	bool "Tsar monocpu v5 soclib"
+	select TSAR_V5
 	select ARCH_FLATMEM_ENABLE
-	select SOCLIB_VCI_XICU
-	select SOCLIB_VCI_IOC
-	select SOCLIB_VCI_MTTY
 	select TSAR_SOCLIB
 
 config ARCH_TSARV5_MULTI_SOCLIB
 	bool "Tsar multicpu v5 soclib"
+	select TSAR_V5
 	select ARCH_FLATMEM_ENABLE
-	select SOCLIB_VCI_XICU
-	select SOCLIB_VCI_IOC
-	select SOCLIB_VCI_MTTY
 	select TSAR_SOCLIB
 
 config ARCH_TSARV5_MONO_FPGA
 	bool "Tsar monocpu v5 fpga"
+	select TSAR_V5
 	select ARCH_FLATMEM_ENABLE
-	select SOCLIB_VCI_XICU
-	select SOCLIB_VCI_IOC
-	select SOCLIB_VCI_MTTY
 	select TSAR_FPGA
 
 config ARCH_TSARV5_MULTI_FPGA
 	bool "Tsar multicpu v5 fpga"
+	select TSAR_V5
 	select ARCH_FLATMEM_ENABLE
-	select SOCLIB_VCI_XICU
-	select SOCLIB_VCI_IOC
-	select SOCLIB_VCI_MTTY
 	select TSAR_FPGA
 
 endchoice
@@ -140,6 +129,19 @@ config SOCLIB_VCI_TIMER
 
 config SOCLIB_VCI_IOC
 	bool
+
+config TSAR_V4
+	bool
+	select SOCLIB_VCI_ICU
+	select SOCLIB_VCI_TIMER
+	select SOCLIB_VCI_IOC
+	select SOCLIB_VCI_MTTY
+
+config TSAR_V5
+	bool
+	select SOCLIB_VCI_XICU
+	select SOCLIB_VCI_IOC
+	select SOCLIB_VCI_MTTY
 
 source "mm/Kconfig"
 
