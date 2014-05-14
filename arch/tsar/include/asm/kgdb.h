@@ -12,11 +12,15 @@
  * gdb expects the following register layout:
  * - 32 general purpose registers: r0-r31
  * - 6 extra registers: sr, lo, hi, bad, cause, pc
+ * - 32 floating-point registers: f0-f31
+ * - 2 fp extra registers: fsr, fir
  */
 #define _GP_REGS 32
 #define _EX_REGS 6
+#define _FP_GP_REGS 32
+#define _FP_EX_REGS 2
 
-#define DBG_MAX_REG_NUM (_GP_REGS + _EX_REGS)
+#define DBG_MAX_REG_NUM (_GP_REGS + _EX_REGS + _FP_GP_REGS +_FP_EX_REGS)
 #define NUMREGBYTES	(DBG_MAX_REG_NUM * 4)
 
 /* break is a 32-bit instruction */
