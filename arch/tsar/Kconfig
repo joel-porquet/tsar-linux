@@ -88,11 +88,19 @@ config ARCH_TSARV5_MULTI_FPGA
 	select ARCH_FLATMEM_ENABLE
 	select TSAR_FPGA
 
+config ARCH_TSARV5_LETI_SOCLIB
+	bool "Tsar leti v5 soclib"
+	select TSAR_V5
+	select ARCH_FLATMEM_ENABLE
+	select TSAR_SOCLIB
+	select TSAR_LETI
+
 endchoice
 
 config SMP
 	bool "Symmetric multi-processing support"
 	depends on ARCH_TSARV5_MULTI_SOCLIB || ARCH_TSARV5_MULTI_FPGA
+	# FIXME: should add LETI system to that list
 
 config NR_CPUS
 	int "Maximum number of CPUs" if SMP
@@ -112,6 +120,9 @@ config TSAR_SOCLIB
 	bool
 
 config TSAR_FPGA
+	bool
+
+config TSAR_LETI
 	bool
 
 config SOCLIB_VCI_ICU

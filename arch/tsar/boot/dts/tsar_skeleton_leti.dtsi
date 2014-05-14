@@ -1,0 +1,75 @@
+/*
+ * Skeleton DTS file for TSAR on LETI
+ */
+
+/ {
+	compatible = "tsar,leti";
+	#address-cells = <1>;
+	#size-cells = <1>;
+	interrupt-parent = <&icu>;
+
+	chosen { };
+	aliases { };
+
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		cpu@0 {
+			device_type = "cpu";
+			compatible = "soclib,mips32el";
+			reg = <0>;
+		};
+	};
+
+	cpuclk: cpuclk{
+		compatible = "soclib,mips32_clksrc";
+		clocks = <&freq25MHz>;
+	};
+
+	vci {
+		compatible = "simple-bus";
+		#address-cells = <1>;
+		#size-cells = <1>;
+		ranges; // identity mapping between root addressing and vci network
+
+		icu: icu {
+			interrupt-controller;
+			#interrupt-cells = <1>;
+		};
+
+		tty: tty {
+			compatible = "soclib,vci_multi_tty";
+			reg = <0xf4000000 0x10>;
+			interrupts = <0>;
+		};
+
+		timer {
+			clocks = <&freq25MHz>;
+		};
+
+		blockdevice {
+		};
+
+		//framebuffer {
+		//	compatible = "tsar,vci_framebuffer", "simple-framebuffer";
+		//	reg = <0xf3000000 (640 * 680 * 2)>;
+		//	width = <640>;
+		//	height = <480>;
+		//	stride = <(640 * 2)>;
+		//	format = "r5g6b5";
+		//};
+
+		memory@0x00000000 {
+			device_type = "memory";
+			reg = <0x00000000 0x04000000>;
+		};
+	};
+
+	clocks {
+		freq25MHz: frequency@25MHz {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <25000000>; // assumes a certain clock frequency
+		};
+	};
+};

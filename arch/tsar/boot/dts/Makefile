@@ -5,3 +5,5 @@ obj-$(CONFIG_ARCH_TSARV5_MULTI_SOCLIB) += tsarv5_multi_soclib.dtb.o
 
 obj-$(CONFIG_ARCH_TSARV5_MONO_FPGA) += tsarv5_mono_fpga.dtb.o
 obj-$(CONFIG_ARCH_TSARV5_MULTI_FPGA) += tsarv5_multi_fpga.dtb.o
+
+obj-$(CONFIG_ARCH_TSARV5_LETI_SOCLIB) += tsarv5_leti_soclib.dtb.o
