@@ -346,11 +346,12 @@ void __init vci_xicu_mask_init(void)
 	for_each_cpu(cpu, cpu_possible_mask)
 	{
 #ifdef CONFIG_SMP
-		__raw_writel(0, VCI_XICU_REG(XICU_MSK_WTI_ENABLE,
+		__raw_writel(1, VCI_XICU_REG(XICU_MSK_WTI_DISABLE,
 					cpu_logical_map(cpu)));
 #endif
-		__raw_writel(0, VCI_XICU_REG(XICU_MSK_PTI_DISABLE,
+		__raw_writel(1, VCI_XICU_REG(XICU_MSK_PTI_DISABLE,
 					cpu_logical_map(cpu)));
+
 		for (i = 0; i < vci_xicu_hwi_count; i++)
 			__raw_writel(BIT(i), VCI_XICU_REG(XICU_MSK_HWI_DISABLE,
 						cpu_logical_map(cpu)));
