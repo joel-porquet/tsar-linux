@@ -135,6 +135,10 @@ config SOCLIB_VCI_ICU
 config SOCLIB_VCI_XICU
 	bool
 
+config SOCLIB_VCI_XICU_LETI
+	bool
+	depends on SOCLIB_VCI_XICU
+
 config SOCLIB_VCI_MTTY
 	bool
 

@@ -14,17 +14,21 @@
  * - 32 outputs
  *
  * Here we slightly limit this flexibility:
- * - there is one output dedicated per cpu: cpu[n] <= output[n].
+ * - in regular systems, there is one output dedicated per cpu: cpu[n] <=
+ *   output[n]. In LETI system, there is four dedicated outputs per cpu: cpu[n]
+ *   <= output[n * 4] to output [(n * 4) + 3]. But we only use the first one.
  * - the 32 external HWI are shared, in the sense that they can migrate from
  *   one cpu (usually the boot cpu at bootime) to another at runtime.
  * - we use one internal IPI and one internal PTI per cpu. From cpu view and
  *   within the xicu irq domain, the IPI is always irq #0, while the PTI is
  *   always irq #1. The numbering of the HWI starts at 2.
  *   E.g.:
- *   cpu[n] <= output[n] <= irq[0]   <= ipi[n]
- *   cpu[n] <= output[n] <= irq[1]   <= pti[n]
- *   cpu[n] <= output[n] <= irq[2+m] <= hwi[m] (relevant only if hwi[m] is
- *   unmasked for cpu[n))
+ *   cpu[n] <= output[N] <= irq[0]   <= ipi[n]
+ *   cpu[n] <= output[N] <= irq[1]   <= pti[n]
+ *   cpu[n] <= output[N] <= irq[2+m] <= hwi[m] (relevant only if hwi[m] is
+ *   unmasked for cpu[n])
+ *
+ *      Note: N is n for regular systems, but is (n * 4) for LETI system.
  */
 
 /* IPI IRQ is always #0 */
@@ -83,5 +87,14 @@
 
 extern void __iomem *vci_xicu_virt_base;
 extern struct irq_domain *vci_xicu_irq_domain;
+
+/* Convert hardware cpu number into xicu irq output */
+#ifdef CONFIG_SOCLIB_VCI_XICU_LETI
+/* on LETI hardware system, there are 4 irq outputs per cpu */
+# define VCI_XICU_CPUID_MAP(x) ((x) << 2)
+#else
+/* on regular hardware system, there is 1 irq output per cpu */
+# define VCI_XICU_CPUID_MAP(x) (x)
+#endif
 
 #endif /* _TSAR_VCI_XICU_H */
