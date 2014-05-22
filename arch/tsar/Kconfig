@@ -95,11 +95,18 @@ config ARCH_TSARV5_LETI_SOCLIB
 	select TSAR_SOCLIB
 	select TSAR_LETI
 
+config ARCH_TSARV5_LETI_FPGA
+	bool "Tsar leti v5 fpga"
+	select TSAR_V5
+	select ARCH_FLATMEM_ENABLE
+	select TSAR_FPGA
+	select TSAR_LETI
+
 endchoice
 
 config SMP
 	bool "Symmetric multi-processing support"
-	depends on ARCH_TSARV5_MULTI_SOCLIB || ARCH_TSARV5_MULTI_FPGA || ARCH_TSARV5_LETI_SOCLIB
+	depends on ARCH_TSARV5_MULTI_SOCLIB || ARCH_TSARV5_MULTI_FPGA || ARCH_TSARV5_LETI_SOCLIB || ARCH_TSARV5_LETI_FPGA
 
 config NR_CPUS
 	int "Maximum number of CPUs" if SMP
