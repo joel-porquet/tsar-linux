@@ -359,6 +359,10 @@ volatile unsigned long secondary_cpu_boot __cacheline_aligned = INVALID_HWID;
 
 volatile unsigned long secondary_cpu_gp __cacheline_aligned;
 
+#ifdef CONFIG_SMP_IPI_BOOT
+extern void kernel_entry(void);
+#endif
+
 int __cpu_up(unsigned int cpu, struct task_struct *idle)
 {
 	int ret = 0;
@@ -375,11 +379,19 @@ int __cpu_up(unsigned int cpu, struct task_struct *idle)
 	 * time. Anyway, it does not cost much to set it, so do it! */
 	//current_thread_info_set[cpu] = task_thread_info(idle);
 
+#ifdef CONFIG_SMP_IPI_BOOT
+	/* in LETI system, secondary cpus have been put to sleep by the
+	 * preloader. They are waiting for an IPI to tell them where to jump
+	 * to.
+	 */
+	smp_ipi_call(cpumask_of(cpu), __pa(kernel_entry));
+#else
 	/* unlock cpu from spin wait and make it boot */
 	secondary_cpu_boot = cpu_logical_map(cpu);
 
 	/* force flushing writes in memory */
 	wmb();
+#endif
 
 	/* wait 1s until the cpu is online */
 	timeout = jiffies + (1 * HZ);

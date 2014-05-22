@@ -345,7 +345,9 @@ void __init vci_xicu_mask_init(void)
 	/* mask all IPIs, PTIs and HWIs */
 	for_each_cpu(cpu, cpu_possible_mask)
 	{
-#ifdef CONFIG_SMP
+#if defined(CONFIG_SMP) && !defined(CONFIG_SMP_IPI_BOOT)
+		/* Do not disable IPI irqs if we need them for SMP bootup.
+		 * In this case, they have been enabled by the bootloader. */
 		__raw_writel(1, VCI_XICU_REG(XICU_MSK_WTI_DISABLE,
 					cpu_logical_map(cpu)));
 #endif

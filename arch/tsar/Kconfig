@@ -108,6 +108,10 @@ config NR_CPUS
 	default "1" if !SMP
 	default "4" if SMP
 
+config SMP_IPI_BOOT
+	bool
+	depends on SMP
+
 config TSAR_L1_CACHE_SHIFT
 	int "Size of L1 cache line (power of 2)"
 	default 6

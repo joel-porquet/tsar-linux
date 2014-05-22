@@ -152,6 +152,7 @@ ENTRY(secondary_kernel_entry)
 	 * - t0 contains the hardware cpuid
 	 */
 
+# if !defined (CONFIG_SMP_IPI_BOOT)
 	/*
 	 * spin until our cpuid is called
 	 */
@@ -159,6 +160,7 @@ ENTRY(secondary_kernel_entry)
 spin_wait_boot:
 	lw	t2, 0(t1)
 	bne	t2, t0, spin_wait_boot
+# endif
 
 	/*
 	 * enable paging
