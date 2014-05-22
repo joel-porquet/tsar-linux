@@ -23,7 +23,7 @@
 
 extern void handle_IPI(void);
 
-#define SMP_IPI_CALL(n) void (n)(const struct cpumask *mask)
+#define SMP_IPI_CALL(n) void (n)(const struct cpumask *mask, unsigned long val)
 typedef SMP_IPI_CALL(smp_ipi_call_t);
 
 extern void set_smp_ipi_call(smp_ipi_call_t *);

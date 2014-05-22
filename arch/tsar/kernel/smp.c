@@ -77,7 +77,7 @@ static void ipi_send_msg(const struct cpumask *mask, enum ipi_msg_type msg)
 	}
 
 	/* send the ipi signal */
-	smp_ipi_call(mask);
+	smp_ipi_call(mask, 0);
 
 	local_irq_restore(flags);
 }
