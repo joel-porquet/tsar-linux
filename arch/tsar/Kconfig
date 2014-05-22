@@ -99,8 +99,7 @@ endchoice
 
 config SMP
 	bool "Symmetric multi-processing support"
-	depends on ARCH_TSARV5_MULTI_SOCLIB || ARCH_TSARV5_MULTI_FPGA
-	# FIXME: should add LETI system to that list
+	depends on ARCH_TSARV5_MULTI_SOCLIB || ARCH_TSARV5_MULTI_FPGA || ARCH_TSARV5_LETI_SOCLIB
 
 config NR_CPUS
 	int "Maximum number of CPUs" if SMP
