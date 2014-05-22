@@ -40,7 +40,6 @@
 		tty: tty {
 			compatible = "soclib,vci_multi_tty";
 			reg = <0xf4000000 0x10>;
-			interrupts = <0>;
 		};
 
 		timer {
