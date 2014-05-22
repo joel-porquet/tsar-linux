@@ -1,0 +1,20 @@
+/*
+ * Defines one processor
+ */
+
+/ {
+	cpus {
+		#address-cells = <1>;
+		#size-cells = <0>;
+		cpu@0 {
+			device_type = "cpu";
+			compatible = "soclib,mips32el";
+			reg = <0>;
+		};
+	};
+
+	cpuclk{
+		compatible = "soclib,mips32_clksrc";
+		clocks = <&freq>;
+	};
+};

@@ -1,16 +1,16 @@
 /*
- * DTS file for TSARV5 multicpu on FPGA
+ * DTS file for TSARV5 on LETI
  */
 
 /dts-v1/;
 
-/include/ "skeleton_fpga.dtsi"
+/include/ "skeleton_leti.dtsi"
 /include/ "cpu_multi.dtsi"
-/include/ "freq_fpga_de2.dtsi"
+/include/ "freq_fpga_de3.dtsi"
 
 / {
-	model = "UPMC/LIP6/SoC - Tsar v5 multicpu FPGA";
-	compatible = "tsar,v5_fpga", "tsar,multicpu_v5_fpga";
+	model = "UPMC/LIP6/SoC - Tsar v5 LETI";
+	compatible = "tsar,v5_leti";
 
 	chosen {
 		/* the day we have a uart8250 compatible component, we can use
@@ -25,4 +25,3 @@
 		bootargs = "console=tty0 console=ttyVTTY0 earlyprintk";
 	};
 };
-

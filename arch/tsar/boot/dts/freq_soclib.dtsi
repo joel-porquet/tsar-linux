@@ -1,0 +1,14 @@
+/*
+ * Frequency of SoCLib for TSAR
+ * Random number since it's only simulation
+ */
+
+/ {
+	clocks {
+		freq: frequency@25MHz {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <25000000>;
+		};
+	};
+};

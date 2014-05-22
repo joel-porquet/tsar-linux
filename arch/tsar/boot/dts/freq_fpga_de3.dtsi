@@ -1,0 +1,14 @@
+/*
+ * Frequency of FPGA DE3 board for TSAR
+ * 50Mhz
+ */
+
+/ {
+	clocks {
+		freq: frequency@50MHz {
+			#clock-cells = <0>;
+			compatible = "fixed-clock";
+			clock-frequency = <50000000>;
+		};
+	};
+};

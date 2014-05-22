@@ -1,0 +1,27 @@
+/*
+ * Skeleton DTS file for TSAR
+ */
+
+/*
+ * This file is mainly for fixing sections in the right order
+ */
+
+/ {
+	compatible = "tsar";
+	#address-cells = <1>;
+	#size-cells = <1>;
+
+	chosen {
+		/* default peripheral to use when configuring earlyprintk */
+		/* node: it implies that a 'tty' node must be defined */
+		linux,stdout-path = &tty;
+	};
+
+	aliases { };
+
+	cpus { };
+
+	vci { };
+
+	clocks { };
+};

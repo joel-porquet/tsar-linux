@@ -1,13 +1,12 @@
 /*
  * DTS file for TSARV5 monocpu on FPGA
- *
- * Includes the skeleton and specializes it:
- *  - use of vci_xicu(_timer)
  */
 
 /dts-v1/;
 
-/include/ "tsar_skeleton_fpga.dtsi"
+/include/ "skeleton_fpga.dtsi"
+/include/ "cpu_mono.dtsi"
+/include/ "freq_fpga_de2.dtsi"
 
 / {
 	model = "UPMC/LIP6/SoC - Tsar v5 monocpu FPGA";
@@ -24,37 +23,6 @@
 		/* display console in both framebuffer and tty (the last one
 		 * becomes the default one) */
 		bootargs = "console=tty0 console=ttyVTTY0 earlyprintk";
-
-		/* default peripheral to use when configuring earlyprintk */
-		linux,stdout-path = &tty;
-	};
-
-	vci {
-		icu: icu {
-			compatible = "soclib,vci_xicu";
-			reg = <0xf0000000 0x1000>;
-		};
-
-		tty: tty {
-			interrupts = <0>;
-		};
-
-		timer {
-			compatible = "soclib,vci_xicu_timer";
-		};
-
-		/*
-		blockdevice {
-			compatible = "tsar,vci_block_device_tsar_v5";
-			reg = <0x1c000000 0x40>;
-			interrupts = <1>;
-		};
-		*/
-
-		memcache {
-			compatible = "tsar,memcache_v5";
-			interrupts = <2>;
-		};
 	};
 };
 

@@ -1,14 +1,12 @@
 /*
  * DTS file for TSARV4 monocpu on SoCLib
- *
- * Includes the skeleton and specializes it:
- *  - use of vci_icu
- *  - use of vci_timer
  */
 
 /dts-v1/;
 
-/include/ "tsar_skeleton_soclib.dtsi"
+/include/ "skeleton_soclib.dtsi"
+/include/ "cpu_mono.dtsi"
+/include/ "freq_soclib.dtsi"
 
 / {
 	model = "UPMC/LIP6/SoC - Tsar v4 monocpu SoCLib";
@@ -25,9 +23,6 @@
 		/* display console in both framebuffer and tty (the last one
 		 * becomes the default one) */
 		bootargs = "console=tty0 console=ttyVTTY0 earlyprintk";
-
-		/* default peripheral to use when configuring earlyprintk */
-		linux,stdout-path = &tty;
 	};
 
 	vci {
@@ -35,10 +30,6 @@
 			/* the vci_icu is a N->1 interrupt controller */
 			compatible = "soclib,vci_icu";
 			reg = <0x10000000 0x14>;
-		};
-
-		tty: tty {
-			interrupts = <0>;
 		};
 
 		timer {

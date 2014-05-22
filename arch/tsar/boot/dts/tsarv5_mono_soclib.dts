@@ -7,7 +7,9 @@
 
 /dts-v1/;
 
-/include/ "tsar_skeleton_soclib.dtsi"
+/include/ "skeleton_soclib.dtsi"
+/include/ "cpu_mono.dtsi"
+/include/ "freq_soclib.dtsi"
 
 / {
 	model = "UPMC/LIP6/SoC - Tsar v5 monocpu SoCLib";
@@ -27,9 +29,6 @@
 		/* display console in both framebuffer and tty (the last one
 		 * becomes the default one) */
 		bootargs = "console=tty0 console=ttyVTTY0 earlyprintk";
-
-		/* default peripheral to use when configuring earlyprintk */
-		linux,stdout-path = &tty;
 	};
 
 	vci {
@@ -38,21 +37,15 @@
 			reg = <0x10000000 0x1000>;
 		};
 
-		tty: tty {
-			interrupts = <0>;
-		};
-
 		timer {
 			compatible = "soclib,vci_xicu_timer";
 		};
 
-		/*
 		blockdevice {
 			compatible = "tsar,vci_block_device_tsar_v5";
 			reg = <0x1c000000 0x40>;
 			interrupts = <1>;
 		};
-		*/
 
 		memcache {
 			compatible = "tsar,memcache_v5";
