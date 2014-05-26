@@ -131,6 +131,7 @@ config TSAR_SOCLIB
 
 config TSAR_FPGA
 	bool
+	select SMP_IPI_BOOT if SMP
 
 config TSAR_LETI
 	bool
