@@ -29,7 +29,7 @@ static struct resource kernel_data_resource = { .name = "Kernel data", };
 static struct resource kernel_bss_resource = { .name = "Kernel bss", };
 
 extern struct boot_param_header __dtb_start; /* defined by Linux */
-void *dtb_start = &__dtb_start;
+static void *dtb_start = &__dtb_start;
 
 unsigned long __cpu_logical_map[NR_CPUS] = {
 	[0 ... NR_CPUS - 1] = INVALID_HWID /* all entries are invalid by default */
@@ -142,7 +142,7 @@ void __init setup_arch(char **cmdline_p)
  * Device tree population
  */
 
-int __init tsar_device_probe(void)
+static int __init tsar_device_probe(void)
 {
 	if (!of_have_populated_dt())
 		panic("Device tree not present!");

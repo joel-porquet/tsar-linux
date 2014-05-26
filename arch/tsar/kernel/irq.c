@@ -27,7 +27,7 @@
  * Stats about interrupts
  */
 
-atomic_t irq_err_count;
+static atomic_t irq_err_count;
 
 void ack_bad_irq(unsigned int irq)
 {
@@ -71,7 +71,7 @@ void __init set_handle_irq(handle_irq_t *new)
 	handle_irq_icu = new;
 }
 
-void mips32_icu_init(void)
+static void mips32_icu_init(void)
 {
 	/* unmask all IRQ sources of the mips32 */
 	set_c0_status(ST0_IM);

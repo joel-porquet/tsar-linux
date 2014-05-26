@@ -13,4 +13,6 @@ extern void set_handle_irq(handle_irq_t *);
 
 #include <asm-generic/irq.h>
 
+void init_IRQ(void);
+
 #endif /* _TSAR_ASM_IRQ_H */

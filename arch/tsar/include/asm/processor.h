@@ -79,5 +79,8 @@ unsigned long get_wchan(struct task_struct *p);
  */
 #define return_address() ({__asm__ __volatile__("":::"$31");__builtin_return_address(0);})
 
+/* proc/cpuinfo */
+extern const struct seq_operations cpuinfo_op;
+
 #endif /* __ASSEMBLY__ */
 #endif /* _ASM_TSAR_PROCESSOR_H */
