@@ -5,7 +5,6 @@
 
 #define finish_arch_switch(prev)                                      \
 	do {                                                          \
-		/* TODO: we should test that the cpu has userlocal */ \
 		write_c0_userlocal(current_thread_info()->tp_value);  \
 	} while(0)
 
