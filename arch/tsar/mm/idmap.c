@@ -8,6 +8,7 @@
  */
 
 #include <asm/pgalloc.h>
+#include <asm/pgtable.h>
 
 /* heavily inspired by ARM support */
 
@@ -20,7 +21,12 @@
  */
 
 pgd_t *idmap_pg_dir;
-phys_addr_t idmap_pg_dir_phys;
+
+/* idmap_pg_dir_phys is 32-bit long and not 40-bit long as it may appear it
+ * should be, because we store only the 27 MSB of the physical address:
+ * idmap_pg_dir_phys = __pa(idmap_pg_dir_phys)[39:13]. This value can then be
+ * directly used as a PTPR for slave processors */
+unsigned long idmap_pg_dir_phys;
 
 static void idmap_set_pmd(pgd_t *pgd, unsigned long addr)
 {
@@ -69,8 +75,11 @@ static int __init init_static_idmap(void)
 	if (!idmap_pg_dir)
 		return -ENOMEM;
 
-	/* we need a physical address for non-boot cpus */
-	idmap_pg_dir_phys = __pa(idmap_pg_dir);
+	/* we need a physical address for non-boot cpus.
+	 * the address is already right shifted so it can be contained in a
+	 * 32-bit word (only the 27 LSB are significant out of the 40-bit
+	 * physical address) */
+	idmap_pg_dir_phys = __pa(idmap_pg_dir) >> PTPR_SHIFT;
 
 	/* add some identity mapping to cover the function that switches from
 	 * PA to VA (see kernel/head.S) */
