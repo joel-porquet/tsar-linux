@@ -36,7 +36,7 @@ static inline void switch_mm(struct mm_struct *prev,
 	{
 		pr_debug("switch_mm: vaddr=0x%08lx, paddr=0x%08lx\n",
 				(unsigned long)next->pgd, __pa(next->pgd));
-		write_c2_ptpr(__pa(next->pgd) >> (PTRS_PER_PGD_LOG2 + PGD_T_LOG2));
+		write_c2_ptpr(__pa(next->pgd) >> PTPR_SHIFT);
 	}
 
 	/* XXX: should we clear 'prev' on the current cpu, as x86 does, to stop
