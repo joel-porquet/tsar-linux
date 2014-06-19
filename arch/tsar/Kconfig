@@ -34,6 +34,12 @@ config STACKTRACE_SUPPORT
 config MMU
 	def_bool y
 
+config ARCH_PHYS_ADDR_T_64BIT
+	def_bool y
+
+config ARCH_DMA_ADDR_T_64BIT
+	def_bool y
+
 # XXX: no DMA for now
 config NO_DMA
 	bool
