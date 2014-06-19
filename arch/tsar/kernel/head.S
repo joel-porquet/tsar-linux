@@ -101,6 +101,7 @@ page_pde_offset = (PAGE_OFFSET >> (PGDIR_SHIFT - PGD_T_LOG2))
 	 */
 
 	la	t0, pa(swapper_pg_dir)		/* physical address of the reference page table */
+	srl	t0, PTPR_SHIFT			/* swapper_pg_dir >> 13 */
 	la	t1, va_jump			/* note we use VA address of symbol va_jump */
 	b	enable_paging
 va_jump:
@@ -119,21 +120,19 @@ ENDPROC(kernel_entry)
 
 /*
  * Put the code where we jump from the initial 1:1 physical address space to
- * the virtual address space in a special section (in prevision for SMP
- * support).
+ * the virtual address space in a special section (for SMP support).
  *
- * - t0 contains the physical address of the page table to use
+ * The arguments to this function are:
+ * - t0 contains the 27 MSB of the page table's physical address
  * - t1 contains the _virtual_ address to return to upon completion
  */
 	.pushsection	.idmap.text, "ax"
 ENTRY(enable_paging)
 
 mmu_mode_init = (MMU_MODE_INST_TLB | MMU_MODE_DATA_TLB | MMU_MODE_INST_CACHE | MMU_MODE_DATA_CACHE)
-ptpr_shift = (PTRS_PER_PGD_LOG2 + PGD_T_LOG2)
 
 	mtc2	$0, MMU_SYNC		/* sync all pending write operations */
 
-	srl	t0, t0, ptpr_shift	/* pg_dir >> 13 */
 	mtc2	t0, MMU_PTPR		/* set PTPR (8KiB aligned) */
 
 	li	t0, mmu_mode_init	/* init mmu mode */
@@ -166,7 +165,7 @@ spin_wait_boot:
 	 * enable paging
 	 */
 
-	lw	t0, pa(idmap_pg_dir_phys)	/* physical address of the idmap page table */
+	lw	t0, pa(idmap_pg_dir_phys)	/* physical address [39:13] of the idmap page table */
 	la	t1, secondary_va_jump		/* note we use VA symbol */
 	b	enable_paging
 secondary_va_jump:
