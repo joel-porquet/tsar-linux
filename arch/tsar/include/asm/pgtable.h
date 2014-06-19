@@ -40,6 +40,8 @@
 #define PGDIR_SIZE		(_AC(1,UL) << PGDIR_SHIFT)
 #define PGDIR_MASK		(~(PGDIR_SIZE - 1))
 
+#define PTPR_SHIFT		(PTRS_PER_PGD_LOG2 + PGD_T_LOG2) /* 11 + 2 */
+
 
 #define USER_PTRS_PER_PGD	(TASK_SIZE / PGDIR_SIZE)
 #define FIRST_USER_ADDRESS	0
