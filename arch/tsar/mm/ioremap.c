@@ -197,7 +197,8 @@ void __iomem * __init_refok
 __ioremap(phys_addr_t paddr, unsigned long size, pgprot_t prot)
 {
 	struct vm_struct *area;
-	unsigned long offset, last_paddr, vaddr;
+	phys_addr_t last_paddr;
+	unsigned long offset, vaddr;
 
 	/* Don't allow wraparound or zero size */
 	last_paddr = paddr + size - 1;
