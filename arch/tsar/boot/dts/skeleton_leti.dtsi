@@ -10,20 +10,20 @@
 
 	vci {
 		compatible = "simple-bus";
-		#address-cells = <1>;
-		#size-cells = <1>;
+		#address-cells = <2>;
+		#size-cells = <2>;
 		ranges; // identity mapping between root addressing and vci network
 
 		icu: icu {
 			compatible = "soclib,vci_xicu";
 			interrupt-controller;
 			#interrupt-cells = <1>;
-			reg = <0xf0000000 0x1000>;
+			reg = <0x0 0xf0000000 0x0 0x1000>;
 		};
 
 		tty: tty {
 			compatible = "soclib,vci_multi_tty";
-			reg = <0xf4000000 0x10>;
+			reg = <0x0 0xf4000000 0x0 0x10>;
 			interrupts = <10>;
 		};
 
@@ -34,14 +34,14 @@
 
 		blockdevice {
 			compatible = "tsar,vci_block_device_tsar_v5";
-			reg = <0xf2000000 0x1000>;
+			reg = <0x0 0xf2000000 0x0 0x1000>;
 			interrupts = <9>;
 		};
 
 		/*
 		framebuffer {
 			compatible = "tsar,vci_framebuffer", "simple-framebuffer";
-			reg = <0xf3000000 (640 * 680 * 2)>;
+			reg = <0x0 0xf3000000 0x0 (640 * 680 * 2)>;
 			width = <640>;
 			height = <480>;
 			stride = <(640 * 2)>;
@@ -51,7 +51,7 @@
 
 		memory@0x00000000 {
 			device_type = "memory";
-			reg = <0x00000000 0x04000000>;
+			reg = <0x0 0x00000000 0x0 0x04000000>;
 		};
 
 		memcache {

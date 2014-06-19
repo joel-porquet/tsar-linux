@@ -34,7 +34,7 @@
 	vci {
 		icu: icu {
 			compatible = "soclib,vci_xicu";
-			reg = <0x10000000 0x1000>;
+			reg = <0x0 0x10000000 0x0 0x1000>;
 		};
 
 		timer {
@@ -43,7 +43,7 @@
 
 		blockdevice {
 			compatible = "tsar,vci_block_device_tsar_v5";
-			reg = <0x1c000000 0x40>;
+			reg = <0x0 0x1c000000 0x0 0x40>;
 			interrupts = <1>;
 		};
 

@@ -8,8 +8,8 @@
 
 / {
 	compatible = "tsar";
-	#address-cells = <1>;
-	#size-cells = <1>;
+	#address-cells = <2>;
+	#size-cells = <2>;
 
 	chosen {
 		/* default peripheral to use when configuring earlyprintk */
