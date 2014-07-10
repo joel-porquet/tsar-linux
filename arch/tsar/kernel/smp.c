@@ -372,13 +372,6 @@ int __cpu_up(unsigned int cpu, struct task_struct *idle)
 	 * pointer (i.e. its idle thread_info structure) */
 	secondary_cpu_gp = (unsigned long)task_thread_info(idle);
 
-	/* XXX: should we also setup current_thread_info_set[cpu]?
-	 * I don't think so because it must be set for user->kernel transitions
-	 * which will never happen here, since we are only in kernel land. It
-	 * will be set late, when we switch to another context for the first
-	 * time. Anyway, it does not cost much to set it, so do it! */
-	//current_thread_info_set[cpu] = task_thread_info(idle);
-
 #ifdef CONFIG_SMP_IPI_BOOT
 	/* in LETI system, secondary cpus have been put to sleep by the
 	 * preloader. They are waiting for an IPI to tell them where to jump

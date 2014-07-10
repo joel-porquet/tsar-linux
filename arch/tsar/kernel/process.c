@@ -17,16 +17,6 @@
 #include <asm/uaccess.h>
 
 /*
- * Pointer to current thread_info struct, according to cpunum
- * (contains a pointer to the corresponding kernel stack!)
- *
- * Used when IET events
- *
- * Important: in a SMP configuration, we assume cpu0 is the boot cpu
- */
-struct thread_info *current_thread_info_set[NR_CPUS] = { &init_thread_info, };
-
-/*
  * Thread management
  */
 
@@ -184,11 +174,14 @@ struct task_struct *__switch_to(struct task_struct *prev,
 	 */
 	local_irq_save(flags);
 
-	/* current_thread_info_set is an array of saved current pointers (one
-	 * per cpu). We need it at user->kernel transistions, especially to
-	 * find the corresponding kernel stack (thread_info->ksp).
+	/* change the current thread_info ($28, aka $gp) */
+	current_thread_info() = next_ti;
+
+	/* save the newly current thread_info for this cpu. We need it at
+	 * user->kernel transistions, especially to find the corresponding
+	 * kernel stack (thread_info->ksp).
 	 * Note: ksp is used only for user->kernel transistion */
-	current_thread_info_set[smp_processor_id()] = next_ti;
+	write_c0_tccontext(current_thread_info());
 
 	/* performs the actual switch:
 	 * - before the switch, 'prev' is the currently running task, 'next' is

@@ -55,6 +55,8 @@
 
 #define read_c0_hwcpuid()	(read_c0_ebase() & EBASE_CPUHWID)
 
+#define write_c0_tccontext(val)	__write_c0_reg_sel((val), CP0_TCCONTEXT, 5)
+
 /* set, clear, change macros */
 #define set_c0_status(set)          \
 	({ unsigned int _old, _new; \

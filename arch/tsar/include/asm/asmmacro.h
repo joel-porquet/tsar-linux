@@ -25,25 +25,9 @@
  * must return the saved KSP of the current cpu in k1
  */
 
-#ifdef CONFIG_SMP
-
-#define GET_SAVED_KSP                        \
-	mfc0	k1, CP0_EBASE, 1            ;\
-	andi	k1, EBASE_CPUHWID           ;\
-	sll	k1, 2                       ;\
-	la	k0, current_thread_info_set ;\
-	add	k0, k1                      ;\
-	lw	k0, (k0)                    ;\
-	lw	k1, TI_KSP(k0)              ;
-
-#else /* !CONFIG_SMP */
-
-#define GET_SAVED_KSP                        \
-	la	k0, current_thread_info_set ;\
-	lw	k0, (k0)                    ;\
-	lw	k1, TI_KSP(k0)              ;
-
-#endif /* CONFIG_SMP */
+#define GET_SAVED_KSP                 \
+	mfc0	k0, CP0_TCCONTEXT, 5 ;\
+	lw	k1, TI_KSP(k0)       ;
 
 
 /*

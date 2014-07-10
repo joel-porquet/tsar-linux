@@ -71,9 +71,6 @@ ENTRY(__asm_switch_to)
 	lw	t0, PT_R29(sp)
 	sw	t0, TI_KSP(a1)
 
-	/* setup $28 (current_thread_info) */
-	move	$28, a1
-
 	/* restore callee-savec registers */
 	lw	s0, PT_R16(sp)
 	lw	s1, PT_R17(sp)

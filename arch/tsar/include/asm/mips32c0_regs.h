@@ -9,6 +9,7 @@
 #define CP0_INDEX	$0
 #define CP0_RANDOM	$1
 #define CP0_ENTRYLO0	$2
+#define CP0_TCCONTEXT	$2 // (2, 5)
 #define CP0_ENTRYLO1	$3
 #define CP0_CONF	$3
 #define CP0_CONTEXT	$4
