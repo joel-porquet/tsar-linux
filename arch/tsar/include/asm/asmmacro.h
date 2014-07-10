@@ -21,16 +21,6 @@
 
 
 /*
- * GET_SAVED_KSP macro
- * must return the saved KSP of the current cpu in k1
- */
-
-#define GET_SAVED_KSP                 \
-	mfc0	k0, CP0_TCCONTEXT, 5 ;\
-	lw	k1, TI_KSP(k0)       ;
-
-
-/*
  * IRQ enabling/disabling
  */
 
@@ -91,7 +81,8 @@
 	move	k1, sp	/* store kernel sp in k1 */             ;\
 	1:                                                      ;\
 	/* user mode */                                         ;\
-	GET_SAVED_KSP                                           ;\
+	mfc0	k0, CP0_TCCONTEXT, 5 /* get saved thread_info */;\
+	lw	k1, TI_KSP(k0)       /* retrieve kernel stack */;\
 	2:                                                      ;\
 	/* kernel mode: now k1 contains a valid ptr on ksp */   ;\
 	/* make room for pt_regs and a stackframe */            ;\
