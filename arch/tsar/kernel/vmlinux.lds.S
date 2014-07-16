@@ -81,7 +81,7 @@ SECTIONS
 	_edata = .;
 
 	/*
-	 * init segment
+	 * init/exit segment
 	 * (will be freed after init, hence the page alignment)
 	 *
 	 * TODO: we could put this segment after bss, since it will be freed.
@@ -92,10 +92,11 @@ SECTIONS
 	.init.begin : AT(ADDR(.init.begin) - LOAD_OFFSET) {
 		__init_begin = .;
 	}
+	/* init text/data */
 	INIT_TEXT_SECTION(PAGE_SIZE)
 	INIT_DATA_SECTION(16)
 
-	/* TODO: I don't fully understand what those are... */
+	/* exit text/data */
 	.exit.text : AT(ADDR(.exit.text) - LOAD_OFFSET) { EXIT_TEXT }
 	.exit.data : AT(ADDR(.exit.data) - LOAD_OFFSET) { EXIT_DATA }
 
