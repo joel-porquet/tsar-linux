@@ -52,7 +52,6 @@ static void __init resource_init(void)
 	kernel_bss_resource.flags = IORESOURCE_BUSY | IORESOURCE_MEM;
 
 	for_each_memblock(memory, region) {
-		/* XXX: should we discard highmem memory banks as in MIPS? */
 		struct resource *res;
 		res = __va(memblock_alloc(sizeof(struct resource), SMP_CACHE_BYTES));
 		memset(res, 0, sizeof(struct resource));
@@ -71,6 +70,38 @@ static void __init resource_init(void)
 		request_resource(res, &kernel_data_resource);
 		request_resource(res, &kernel_bss_resource);
 	}
+}
+
+/* This function overloads the weak default one. Here we want to include the
+ * notion of nodes at the earliest, and also constrain the boundaries of memory
+ * banks to be aligned with big pages, so we don't have to allocate anything
+ * when mapping the low memory. */
+void __init early_init_dt_add_memory_arch(u64 base, u64 size)
+{
+	unsigned char node;
+
+	/* align the memory banks on big page boundaries, so that we can map
+	 * them (i.e. the low memory) using only big pages. This avoids having
+	 * to allocate second-level page tables when mapping the low memory */
+	if (base & ~PMD_MASK) {
+		u64 new_base = round_up(base, PMD_SIZE);
+		pr_warning("Aligning base of memory block from 0x%llx to 0x%llx\n",
+				base, new_base);
+		base = new_base;
+	}
+	if (size & ~PMD_MASK) {
+		u64 new_size = round_down(size, PMD_SIZE);
+		pr_warning("Aligning size of memory block from 0x%llx to 0x%llx\n",
+				size, new_size);
+		size = new_size;
+	}
+
+	/* in monocluster, memory blocks are necessary in the node #0 */
+	node = (base >> 32) & 0xFF;
+	BUG_ON(node != 0);
+
+	/* add the memory block */
+	memblock_add_node(base, size, node);
 }
 
 void __init early_init_devtree(void *dtb)
@@ -102,12 +133,7 @@ void __init setup_arch(char **cmdline_p)
 	 * e.g. 'earlyprintk' or 'earlycon' */
 	parse_early_param();
 
-	/* setup memory:
-	 * - init_mm
-	 * - memblock limits
-	 */
-	memory_init();
-
+	/* memory initialization */
 	paging_init();
 
 	resource_init();
@@ -120,7 +146,7 @@ void __init setup_arch(char **cmdline_p)
 
 	/* initialize the first entry of the cpu logical map with the current
 	 * boot cpu (it allows to use SMP code when on monocpu - e.g. in the
-	 * xicu driver */
+	 * xicu driver) */
 	cpu_logical_map(0) = read_c0_hwcpuid();
 
 #ifdef CONFIG_SMP

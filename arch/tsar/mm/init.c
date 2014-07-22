@@ -37,7 +37,7 @@ static void * vmalloc_min __initdata =
 	(void *)(VMALLOC_END - SZ_128M - VMALLOC_OFFSET);
 static phys_addr_t lowmem_limit __initdata = 0;
 
-void __init memory_init(void)
+static void __init memory_init(void)
 {
 	/* complete init_mm */
 	init_mm.start_code = (unsigned long) _stext;
@@ -73,35 +73,25 @@ void __init memory_init(void)
 
 	/* if amount of RAM is superior to lowmem_limit */
 	if (max_pfn > PFN_DOWN(lowmem_limit)) {
-		pr_warning("Warning, only %ldMB will be used.\n",
-				(unsigned long)lowmem_limit >> 20);
+#ifndef CONFIG_HIGHMEM
+		pr_warning("Warning: memory above %ldMB cannot be used"
+				" (!CONFIG_HIGHMEM).\n",
+				(unsigned long)(lowmem_limit >> 20));
+#else
+#error Not yet supported!
+#endif
 		max_low_pfn = PFN_DOWN(lowmem_limit);
 	} else {
 		max_low_pfn = max_pfn;
 	}
 
+	/* setup the high memory limit (it determines the starting point of
+	 * the vmalloc area) */
+	high_memory = (void*)__va(max_low_pfn * PAGE_SIZE);
+
 	pr_debug("%s: min_low_pfn: %#lx\n", __func__, min_low_pfn);
 	pr_debug("%s: max_low_pfn: %#lx\n", __func__, max_low_pfn);
 	pr_debug("%s: max_pfn: %#lx\n", __func__, max_pfn);
-
-	/* TODO: let's not deal with sparse_init for now */
-}
-
-static void __init zones_size_init(void)
-{
-	unsigned long zones_size[MAX_NR_ZONES];
-
-	/* zones setup */
-	memset(zones_size, 0, sizeof(zones_size));
-	zones_size[ZONE_NORMAL] = (max_low_pfn - min_low_pfn);
-	//zones_size[ZONE_HIGHMEM] = (max_pfn - min_low_pfn);
-
-	/* FIXME: we assume FLATMEM with no hole for now */
-	free_area_init_node(0, zones_size, min_low_pfn, NULL);
-
-	// we could put the following if we consider the PA space begins at
-	// __pa(PAGE_OFFSET)
-	//free_area_init(zones_size);
 }
 
 static void __init prepare_page_table(void)
@@ -137,46 +127,15 @@ static void __init prepare_page_table(void)
 		pmd_clear((pmd_t*)pgd_offset_kernel(vaddr));
 }
 
-static void * __init early_alloc(unsigned long size)
-{
-	void *ptr = __va(memblock_alloc(size, size));
-	memset(ptr, 0, size);
-	return ptr;
-}
-
-static pte_t * __init early_pte_alloc(pmd_t *pmd, unsigned long vaddr)
-{
-	if (pmd_none(*pmd)) {
-		pte_t *pte = (pte_t*)early_alloc(PTRS_PER_PTE * sizeof(pte_t));
-		pmd_populate_kernel(&init_mm, pmd, pte);
-	}
-	BUG_ON(pmd_bad(*pmd));
-	return pte_offset_kernel(pmd, vaddr);
-}
-
-static void __init alloc_init_pte(pmd_t *pmd, unsigned long vaddr, unsigned long vend, phys_addr_t paddr)
-{
-	pte_t *pte = early_pte_alloc(pmd, vaddr);
-	do {
-		set_pte(pte, pfn_pte(paddr >> PAGE_SHIFT, PAGE_KERNEL));
-		paddr += PAGE_SIZE;
-		vaddr += PAGE_SIZE;
-		pte++;
-	} while (vaddr != vend);
-}
-
 static void __init alloc_init_pmd(pgd_t *pgd, unsigned long vaddr, unsigned long vend, phys_addr_t paddr)
 {
 	pmd_t *pmd = pmd_offset((pud_t*)pgd, vaddr);
 
-	if (((vaddr | vend | paddr) & ~PMD_MASK) == 0)
-	{
-		/* try a section mapping (PTE1), in case everything is aligned */
-		set_pmd(pmd, __pmd(paddr >> PMD_SHIFT | pgprot_val(PMD_SECT)));
-	} else {
-		/* otherwise we need a second level (PTE2) */
-		alloc_init_pte(pmd, vaddr, vend, paddr);
-	}
+	/* the low memory should be aligned on big pages */
+	BUG_ON(((vaddr | vend | paddr) & ~PMD_MASK) != 0);
+
+	/* section mapping (PTE1) */
+	set_pmd(pmd, __pmd(paddr >> PMD_SHIFT | pgprot_val(PMD_SECT)));
 }
 
 static void __init map_lowmem(void)
@@ -212,9 +171,27 @@ static void __init map_lowmem(void)
 	}
 }
 
+static void __init zones_size_init(void)
+{
+	unsigned long max_zone_pfns[MAX_NR_ZONES];
+
+	memset(max_zone_pfns, 0, sizeof(max_zone_pfns));
+
+	max_zone_pfns[ZONE_NORMAL] = max_low_pfn;
+#ifdef CONFIG_HIGHMEM
+#error Not yet supported!
+	max_zone_pfns[ZONE_HIGHMEM] = max_pfn;
+#endif
+
+	/* we just have to specify the max pfn for each zone.
+	 * free_area_init_nodes will take care of the rest (e.g. finding the
+	 * min boundary of each zone). */
+	free_area_init_nodes(max_zone_pfns);
+}
+
 void __init paging_init(void)
 {
-	pr_debug("paging init...\n");
+	memory_init();
 
 	/* prepare page table:
 	 * - clean up to PAGE_OFFSET
@@ -223,6 +200,10 @@ void __init paging_init(void)
 
 	/* map all the lowmem memory banks */
 	map_lowmem();
+
+	/* init sparsemem */
+	sparse_memory_present_with_active_regions(MAX_NUMNODES);
+	sparse_init();
 
 	/* zones size
 	 * (can't do it before because it allocates memory and the page table
@@ -233,12 +214,9 @@ void __init paging_init(void)
 void __init mem_init(void)
 {
 #ifdef CONFIG_FLATMEM
+	/* mem_map was allocated with nopanic */
 	BUG_ON(!mem_map);
 #endif
-
-	max_mapnr = max_low_pfn;
-
-	high_memory = (void*)__va(max_low_pfn * PAGE_SIZE);
 
 	/* no need to clear out the zero-page, since we allocated it in the bss
 	 * section */
@@ -273,12 +251,10 @@ void __init mem_init(void)
 	 * Check boundaries twice: Some fundamental inconsistencies can
 	 * be detected at build time already.
 	 */
-#define __FIXADDR_TOP (-PAGE_SIZE)
 #define high_memory (-128UL << 20)
 	/* vmalloc area is at least 128MiB */
 	BUILD_BUG_ON(VMALLOC_START >= VMALLOC_END);
 #undef high_memory
-#undef __FIXADDR_TOP
 
 	BUG_ON(VMALLOC_START >= VMALLOC_END);
 	BUG_ON((unsigned long)high_memory > VMALLOC_START);
