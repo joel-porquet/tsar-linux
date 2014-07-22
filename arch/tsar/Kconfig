@@ -1,5 +1,7 @@
 config TSAR
 	def_bool y
+	select ARCH_WANT_FRAME_POINTERS
+	select ARCH_DISCARD_MEMBLOCK
 	select CLKSRC_OF
 	select CLONE_BACKWARDS # position of tls in clone syscall
 	select COMMON_CLK
@@ -16,7 +18,7 @@ config TSAR
 	select HAVE_ARCH_TRACEHOOK # user_regset_view API in ptrace
 	select HAVE_ARCH_KGDB
 	select HAVE_MEMBLOCK
-	select ARCH_WANT_FRAME_POINTERS
+	select HAVE_MEMBLOCK_NODE_MAP
 	select IRQ_DOMAIN
 	select MODULES_USE_ELF_REL if MODULES
 	select NO_BOOTMEM
@@ -67,44 +69,41 @@ choice
 config ARCH_TSARV4_MONO_SOCLIB
 	bool "Tsar monocpu v4 soclib"
 	select TSAR_V4
-	select ARCH_FLATMEM_ENABLE
 	select TSAR_SOCLIB
 
 config ARCH_TSARV5_MONO_SOCLIB
 	bool "Tsar monocpu v5 soclib"
 	select TSAR_V5
-	select ARCH_FLATMEM_ENABLE
 	select TSAR_SOCLIB
 
 config ARCH_TSARV5_MULTI_SOCLIB
 	bool "Tsar multicpu v5 soclib"
+	select SMP
 	select TSAR_V5
-	select ARCH_FLATMEM_ENABLE
 	select TSAR_SOCLIB
 
 config ARCH_TSARV5_MONO_FPGA
 	bool "Tsar monocpu v5 fpga"
 	select TSAR_V5
-	select ARCH_FLATMEM_ENABLE
 	select TSAR_FPGA
 
 config ARCH_TSARV5_MULTI_FPGA
 	bool "Tsar multicpu v5 fpga"
+	select SMP
 	select TSAR_V5
-	select ARCH_FLATMEM_ENABLE
 	select TSAR_FPGA
 
 config ARCH_TSARV5_LETI_SOCLIB
 	bool "Tsar leti v5 soclib"
+	select SMP
 	select TSAR_V5
-	select ARCH_FLATMEM_ENABLE
 	select TSAR_SOCLIB
 	select TSAR_LETI
 
 config ARCH_TSARV5_LETI_FPGA
 	bool "Tsar leti v5 fpga"
+	select SMP
 	select TSAR_V5
-	select ARCH_FLATMEM_ENABLE
 	select TSAR_FPGA
 	select TSAR_LETI
 
@@ -112,7 +111,6 @@ endchoice
 
 config SMP
 	bool "Symmetric multi-processing support"
-	depends on ARCH_TSARV5_MULTI_SOCLIB || ARCH_TSARV5_MULTI_FPGA || ARCH_TSARV5_LETI_SOCLIB || ARCH_TSARV5_LETI_FPGA
 
 config NR_CPUS
 	int "Maximum number of CPUs" if SMP
@@ -141,8 +139,8 @@ config TSAR_FPGA
 
 config TSAR_LETI
 	bool
-	select SOCLIB_VCI_XICU_LETI if SMP
-	select SMP_IPI_BOOT if SMP
+	select SOCLIB_VCI_XICU_LETI
+	select SMP_IPI_BOOT
 
 config SOCLIB_VCI_ICU
 	bool
@@ -152,7 +150,7 @@ config SOCLIB_VCI_XICU
 
 config SOCLIB_VCI_XICU_LETI
 	bool
-	depends on SOCLIB_VCI_XICU
+	depends on SOCLIB_VCI_XICU && SMP
 
 config SOCLIB_VCI_MTTY
 	bool
