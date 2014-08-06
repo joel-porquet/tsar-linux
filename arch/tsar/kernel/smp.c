@@ -320,7 +320,7 @@ next:
 	/* All the cpus added to the logical map can now be set as possible cpus */
 	for (i = 0; i < NR_CPUS; i++)
 	{
-		if (cpu_logical_map(i) != INVALID_HWID)
+		if (cpu_logical_map(i) != INVALID_HWCPUID)
 			set_cpu_possible(i, true);
 	}
 }
@@ -355,7 +355,7 @@ void __init smp_prepare_cpus(unsigned int max_cpus)
  * Boot the specified secondary cpu
  */
 
-volatile unsigned long secondary_cpu_boot __cacheline_aligned = INVALID_HWID;
+volatile unsigned long secondary_cpu_boot __cacheline_aligned = INVALID_HWCPUID;
 
 volatile unsigned long secondary_cpu_gp __cacheline_aligned;
 
@@ -400,7 +400,7 @@ int __cpu_up(unsigned int cpu, struct task_struct *idle)
 	}
 
 	/* reset the secondary data */
-	secondary_cpu_boot = INVALID_HWID;
+	secondary_cpu_boot = INVALID_HWCPUID;
 	secondary_cpu_gp = 0;
 
 	return ret;

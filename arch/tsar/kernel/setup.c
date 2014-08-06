@@ -32,7 +32,7 @@ extern struct boot_param_header __dtb_start; /* defined by Linux */
 static void *dtb_start = &__dtb_start;
 
 unsigned long __cpu_logical_map[NR_CPUS] = {
-	[0 ... NR_CPUS - 1] = INVALID_HWID /* all entries are invalid by default */
+	[0 ... NR_CPUS - 1] = INVALID_HWCPUID, /* all entries are invalid by default */
 };
 
 static void __init resource_init(void)
