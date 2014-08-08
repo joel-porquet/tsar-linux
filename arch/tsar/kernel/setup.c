@@ -72,10 +72,10 @@ static void __init resource_init(void)
 	}
 }
 
-/* This function overloads the weak default one. Here we want to include the
- * notion of nodes at the earliest, and also constrain the boundaries of memory
- * banks to be aligned with big pages, so we don't have to allocate anything
- * when mapping the low memory. */
+/* This function overloads the weak default one. We want to constrain the
+ * boundaries of memory banks to be aligned with big pages, so we don't have to
+ * allocate anything (i.e. second level page tables) when mapping the low
+ * memory. */
 void __init early_init_dt_add_memory_arch(u64 base, u64 size)
 {
 	unsigned char node;
@@ -96,12 +96,8 @@ void __init early_init_dt_add_memory_arch(u64 base, u64 size)
 		size = new_size;
 	}
 
-	/* in monocluster, memory blocks are necessary in the node #0 */
-	node = (base >> 32) & 0xFF;
-	BUG_ON(node != 0);
-
 	/* add the memory block */
-	memblock_add_node(base, size, node);
+	memblock_add(base, size);
 }
 
 void __init early_init_devtree(void *dtb)
