@@ -32,7 +32,8 @@ extern struct boot_param_header __dtb_start; /* defined by Linux */
 static void *dtb_start = &__dtb_start;
 
 unsigned long __cpu_logical_map[NR_CPUS] = {
-	[0 ... NR_CPUS - 1] = INVALID_HWCPUID, /* all entries are invalid by default */
+	/* all entries are invalid by default */
+	[0 ... NR_CPUS - 1] = INVALID_HWCPUID,
 };
 
 static void __init resource_init(void)
@@ -78,8 +79,6 @@ static void __init resource_init(void)
  * memory. */
 void __init early_init_dt_add_memory_arch(u64 base, u64 size)
 {
-	unsigned char node;
-
 	/* align the memory banks on big page boundaries, so that we can map
 	 * them (i.e. the low memory) using only big pages. This avoids having
 	 * to allocate second-level page tables when mapping the low memory */
