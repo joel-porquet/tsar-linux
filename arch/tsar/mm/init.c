@@ -37,36 +37,13 @@ static void * vmalloc_min __initdata =
 	(void *)(VMALLOC_END - SZ_128M - VMALLOC_OFFSET);
 static phys_addr_t lowmem_limit __initdata = 0;
 
-static void __init memory_setup_nodes(void)
+#ifndef CONFIG_NEED_MULTIPLE_NODES
+void __init memory_setup_nodes(void)
 {
-	struct memblock_region *reg;
-
-#ifdef CONFIG_NUMA
-	/* get what is supposed to be the last cluster and deduce the size of
-	 * the grid */
-	unsigned char max_x = PA_TO_CLUSTERID_X(memblock_end_of_DRAM());
-	unsigned char max_y = PA_TO_CLUSTERID_Y(memblock_end_of_DRAM());
-
-	/* do we have enough nodes? */
-	BUG_ON((max_x * max_y) > MAX_NUMNODES);
-
-	for_each_memblock(memory, reg) {
-		unsigned char x = PA_TO_CLUSTERID_X(reg->base);
-		unsigned char y = PA_TO_CLUSTERID_Y(reg->base);
-
-		/* check each memory block is inside the grid */
-		BUG_ON((x > max_x) || (y > max_y));
-
-		/* associate the memory block with a node */
-		memblock_set_region_node(reg, x * max_y + y);
-	}
-#else
-	/* when not NUMA, put everything in node 0 */
-	for_each_memblock(memory, reg) {
-		memblock_set_region_node(reg, 0);
-	}
-#endif
+	/* put the entire memory address space in node 0 */
+	memblock_set_node(0, (phys_addr_t)ULLONG_MAX, 0);
 }
+#endif
 
 static void __init memory_init(void)
 {
@@ -233,10 +210,6 @@ void __init paging_init(void)
 
 	/* map all the lowmem memory banks */
 	map_lowmem();
-
-	/* init sparsemem */
-	sparse_memory_present_with_active_regions(MAX_NUMNODES);
-	sparse_init();
 
 	/* zones size
 	 * (can't do it before because it allocates memory and the page table
