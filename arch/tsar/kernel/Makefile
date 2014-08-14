@@ -7,6 +7,7 @@ obj-$(CONFIG_EARLY_PRINTK) += early_printk.o
 obj-$(CONFIG_KGDB) += kgdb.o
 
 obj-$(CONFIG_SMP) += smp.o
+obj-$(CONFIG_NUMA) += numa.o
 
 obj-$(CONFIG_SOCLIB_VCI_ICU) += vci_icu.o
 obj-$(CONFIG_SOCLIB_VCI_XICU) += vci_xicu.o vci_xicu_timer.o

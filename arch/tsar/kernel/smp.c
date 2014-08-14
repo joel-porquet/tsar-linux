@@ -18,8 +18,10 @@
 #include <linux/percpu.h>
 #include <linux/sched.h>
 #include <linux/smp.h>
+#include <linux/topology.h>
 
 #include <asm/mmu_context.h>
+#include <asm/numa.h>
 #include <asm/smp_map.h>
 
 /*
@@ -215,6 +217,9 @@ asmlinkage void __init secondary_start_kernel(void)
 	 * cpu who is still waiting for us */
 	set_cpu_online(cpu, true);
 
+	/* associate the cpu with a node */
+	set_numa_node(cpu_node_map[cpu]);
+
 	/* enable IRQs and start the idle thread */
 	local_irq_enable();
 	cpu_startup_entry(CPUHP_ONLINE);
@@ -327,7 +332,7 @@ next:
 
 void __init smp_prepare_boot_cpu(void)
 {
-	/* nothing to do for the bootcpu with respect to SMP */
+	set_numa_node(cpu_node_map[smp_processor_id()]);
 }
 
 /*

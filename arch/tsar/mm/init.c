@@ -17,6 +17,7 @@
 #include <linux/swap.h>
 #include <linux/types.h>
 
+#include <asm/numa.h>
 #include <asm/page.h>
 #include <asm/pgalloc.h>
 #include <asm/pgtable.h>

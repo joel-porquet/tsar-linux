@@ -173,10 +173,6 @@ generic-y += statfs.h
 # no need for specialization
 generic-y += termios.h
 
-# simple topology API
-# XXX: redefine it when we have support for NUMA
-generic-y += topology.h
-
 # arch-specific trace clocks
 # no need for specialization (like every archs)
 generic-y += trace_clock.h

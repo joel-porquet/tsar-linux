@@ -113,10 +113,27 @@ config SMP
 	bool "Symmetric multi-processing support"
 
 config NR_CPUS
-	int "Maximum number of CPUs" if SMP
-	range 2 4 if SMP
+	int "Maximum number of CPUs"
+	range 2 4 if SMP && !TSAR_MULTI_CLUSTER
+	range 2 256 if SMP && TSAR_MULTI_CLUSTER
+	depends on SMP
 	default "1" if !SMP
-	default "4" if SMP
+	default "4" if SMP && !TSAR_MULTI_CLUSTER
+	default "256" if SMP && TSAR_MULTI_CLUSTER
+
+config NUMA
+	bool "NUMA support"
+	depends on TSAR_MULTI_CLUSTER
+
+config NODES_SHIFT
+	int "Maximum NUMA nodes (as a power of 2)"
+	range 1 8
+	default "1"
+	depends on NEED_MULTIPLE_NODES # enabled by NUMA
+
+config USE_PERCPU_NUMA_NODE_ID
+	def_bool y
+	depends on NUMA
 
 config SMP_IPI_BOOT
 	bool
@@ -141,6 +158,7 @@ config TSAR_LETI
 	bool
 	select SOCLIB_VCI_XICU_LETI
 	select SMP_IPI_BOOT
+	select TSAR_MULTI_CLUSTER
 
 config SOCLIB_VCI_ICU
 	bool
@@ -174,6 +192,15 @@ config TSAR_V5
 	select SOCLIB_VCI_XICU
 	select SOCLIB_VCI_IOC
 	select SOCLIB_VCI_MTTY
+
+config TSAR_MULTI_CLUSTER
+	bool
+	select ARCH_DISCONTIGMEM_ENABLE
+	select NUMA
+	select SPARSE_IRQ
+
+config ARCH_DISCONTIGMEM_ENABLE
+	bool
 
 source "mm/Kconfig"
 

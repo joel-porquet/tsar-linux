@@ -20,6 +20,7 @@
 #include <linux/smp.h>
 
 #include <asm/io.h>
+#include <asm/numa.h>
 #include <asm/sections.h>
 #include <asm/setup.h>
 #include <asm/smp_map.h>
@@ -150,6 +151,9 @@ void __init setup_arch(char **cmdline_p)
 	 * asap. it is useful later in init/main(), e.g. when calling
 	 * setup_nr_cpu_ids() */
 	smp_init_cpus();
+#endif
+#ifdef CONFIG_NUMA
+	cpu_setup_nodes();
 #endif
 
 #if defined(CONFIG_VT)
