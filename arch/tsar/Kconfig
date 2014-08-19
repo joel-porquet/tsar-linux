@@ -202,6 +202,14 @@ config TSAR_MULTI_CLUSTER
 config ARCH_DISCONTIGMEM_ENABLE
 	bool
 
+config HIGHPTE
+	bool "Allocate page tables in highmem"
+	depends on HIGHMEM
+	default y
+	help
+		Setting this option will put user-space page tables (PTE2) in
+		high memory, to avoid wasting low memory.
+
 source "mm/Kconfig"
 
 config MATH_EMULATION

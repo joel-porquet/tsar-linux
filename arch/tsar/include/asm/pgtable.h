@@ -241,10 +241,16 @@ extern pgd_t swapper_pg_dir[PTRS_PER_PGD];
 #define pte_offset_kernel(dir, addr)	\
 	((pte_t *)pmd_page_kernel(*(dir)) + pte_index(addr))
 
+#ifdef CONFIG_HIGHPTE
+/* if the pte is part of high memory, it must be kmapped first */
+#define pte_offset_map(dir, addr)	\
+	((pte_t *)kmap_atomic(pmd_page(*(dir))) + pte_index(addr))
+#define pte_unmap(pte) (kunmap_atomic(pte))
+#else
 #define pte_offset_map(dir, addr)	\
 	((pte_t *)page_address(pmd_page(*(dir))) + pte_index(addr))
-
 #define pte_unmap(pte) ((void)(pte))
+#endif
 
 /*
  * pte attributes (only works if pte_present() is true)

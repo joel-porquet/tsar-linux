@@ -7,6 +7,15 @@
 #include <asm/pgtable.h>
 #include <asm/tlb.h>
 
+#define PGALLOC_GFP (GFP_KERNEL | __GFP_NOTRACK | __GFP_REPEAT | __GFP_ZERO)
+
+#ifdef CONFIG_HIGHPTE
+/* alloc second level page tables in high memory */
+#define PGALLOC_USER_GFP (PGALLOC_GFP | __GFP_HIGHMEM)
+#else
+#define PGALLOC_USER_GFP (PGALLOC_GFP)
+#endif
+
 #define PGD_ORDER	1 /* 2 pages */
 
 /*
@@ -19,14 +28,11 @@ static inline pgd_t *pgd_alloc(struct mm_struct *mm)
 	/* get two pages */
 	/* I've been said on #mipslinux that the result address should be
 	 * aligned on the number of allocated pages (ie 8KiB here) */
-	ret = (pgd_t *) __get_free_pages(GFP_KERNEL, PGD_ORDER);
+	ret = (pgd_t *) __get_free_pages(PGALLOC_GFP, PGD_ORDER);
 
 	/* check we got enough memory and the area is 8KiB aligned */
 	if (!ret || !IS_ALIGNED((unsigned long)ret, 2 * PAGE_SIZE))
 		return NULL;
-
-	/* zero out the user space */
-	memset(ret, 0, USER_PTRS_PER_PGD * sizeof(pgd_t));
 
 	/*
 	 * copy the kernel
@@ -48,20 +54,16 @@ static inline void pgd_free(struct mm_struct *mm, pgd_t *pgd)
 
 static inline pte_t *pte_alloc_one_kernel(struct mm_struct *mm, unsigned long address)
 {
-	pte_t *pte;
-
-	pte = (pte_t*) __get_free_page(GFP_KERNEL | __GFP_REPEAT | __GFP_ZERO);
-
-	return pte;
+	return (pte_t*)__get_free_page(PGALLOC_GFP);
 }
 
 static inline pgtable_t pte_alloc_one(struct mm_struct *mm, unsigned long address)
 {
 	struct page *pte;
-	pte = alloc_pages(GFP_KERNEL | __GFP_REPEAT, 0);
+
+	pte = alloc_pages(PGALLOC_USER_GFP, 0);
 	if (!pte)
 		return NULL;
-	clear_highpage(pte);
 	if (!pgtable_page_ctor(pte)) {
 		__free_page(pte);
 		return NULL;
