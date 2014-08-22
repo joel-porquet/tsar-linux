@@ -13,20 +13,46 @@
 #include <linux/types.h>
 
 #include <asm/io.h>
+#include <asm/mmuc2.h>
 
-/* define a few things about SoCLib vci_multi_tty */
-#define VCI_TTY_WRITE	0x0	/* offset for writing operation */
-#define VCI_TTY_SIZE	0x10	/* size of the tty segment */
-
-static void __iomem *vci_tty_virt_base;
+static phys_addr_t vci_tty_base_addr;
 
 static void early_tty_putchar(const char c)
 {
-	/* SoCLib vci_multi_tty register map (short) */
+	/* The earlyprintk works with deactivating the MMU and accessing the
+	 * tty using its physical address directly. Another solution for
+	 * getting earlyprintk is to provide some sort of early_ioremap, but
+	 * it's a pain in the ass to implement (especially along with highmem
+	 * support) and may not be worth it for only one device. That is why we
+	 * use this hack, not beautiful but it works and doesn't have any
+	 * impact on performance (it maybe adds a few more cycles, but the main
+	 * cost stays the blocking uncached write access anyway). */
 
-	__raw_writel(c, vci_tty_virt_base + VCI_TTY_WRITE);
+	unsigned long mode, flags;
+	void __iomem *paddr = (void*)(unsigned long)vci_tty_base_addr;
 
+	/* configure the MMU (ie CP2) with the 8 MSB of the tty physical
+	 * address (since the processor can only access addresses on 32-bits
+	 * and the tty address is on 40-bits). */
+	write_c2_dpaext((vci_tty_base_addr >> 32) & 0xFF);
+
+	/* we cannot be interrupted when mmu is deactivated */
+	local_irq_save(flags);
+
+	/* deactive the data MMU */
+	mode = clear_c2_mode(MMU_MODE_DATA_TLB);
+
+	/* make the access to the tty (the processor will provide the 32 LSB of
+	 * the address, and the MMU will extend the address to 40-bits using
+	 * the info provided in 1/). */
+	__raw_writel(c, paddr);
+
+	/* reactive the data MMU */
+	write_c2_mode(mode);
+
+	local_irq_restore(flags);
 }
+
 static void early_tty_write(struct console *con, const char *s, unsigned n)
 {
 	while (n-- && *s) {
@@ -101,8 +127,6 @@ static int __init of_early_console(phys_addr_t *console_addr)
 
 static int __init setup_early_printk(char *buf)
 {
-	phys_addr_t vci_tty_base_addr;
-
 	/* already initialized */
 	if (early_console)
 		return 0;
@@ -111,11 +135,6 @@ static int __init setup_early_printk(char *buf)
 	if (!of_early_console(&vci_tty_base_addr))
 		/* no tty is available... */
 		return 0;
-
-	/* map the tty */
-	vci_tty_virt_base = ioremap_nocache(vci_tty_base_addr, VCI_TTY_SIZE);
-
-	BUG_ON(!vci_tty_virt_base);
 
 	early_console = &early_tty_console;
 	register_console(early_console);
