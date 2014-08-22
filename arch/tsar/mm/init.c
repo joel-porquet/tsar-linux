@@ -96,7 +96,7 @@ static void __init memory_init(void)
 
 	/* setup the high memory limit (it determines the starting point of
 	 * the vmalloc area) */
-	high_memory = (void*)__va(max_low_pfn * PAGE_SIZE);
+	high_memory = (void*)__va(PFN_PHYS(max_low_pfn));
 
 	pr_debug("%s: min_low_pfn: %#lx\n", __func__, min_low_pfn);
 	pr_debug("%s: max_low_pfn: %#lx\n", __func__, max_low_pfn);
@@ -136,15 +136,15 @@ static void __init prepare_page_table(void)
 		pmd_clear((pmd_t*)pgd_offset_kernel(vaddr));
 }
 
-static void __init alloc_init_pmd(pgd_t *pgd, unsigned long vaddr, unsigned long vend, phys_addr_t paddr)
+static void __init map_pmd_section(pgd_t *pgd, unsigned long vaddr, phys_addr_t paddr)
 {
 	pmd_t *pmd = pmd_offset((pud_t*)pgd, vaddr);
 
 	/* the low memory should be aligned on big pages */
-	BUG_ON(((vaddr | vend | paddr) & ~PMD_MASK) != 0);
+	BUG_ON(((vaddr | paddr) & ~PMD_MASK) != 0);
 
 	/* section mapping (PTE1) */
-	set_pmd(pmd, __pmd(paddr >> PMD_SHIFT | pgprot_val(PMD_SECT)));
+	set_pmd(pmd, __pmd(paddr >> PMD_SHIFT | __PMD_SECT));
 }
 
 static void __init map_lowmem(void)
@@ -171,7 +171,7 @@ static void __init map_lowmem(void)
 			unsigned long vnext;
 			vnext = pgd_addr_end(vaddr, vend);
 
-			alloc_init_pmd(pgd, vaddr, vnext, paddr);
+			map_pmd_section(pgd, vaddr, paddr);
 
 			paddr += vnext - vaddr;
 			vaddr = vnext;
@@ -200,8 +200,8 @@ static void __init zones_size_init(void)
 
 void __init paging_init(void)
 {
-	memory_setup_nodes();
-
+	/* complete memblock initialization, reserve kernel memory and compute
+	 * the boundaries of low and high memory */
 	memory_init();
 
 	/* prepare page table:
@@ -209,8 +209,15 @@ void __init paging_init(void)
 	 * - and from the end of the first memory bank up to VMALLOC_START */
 	prepare_page_table();
 
-	/* map all the lowmem memory banks */
+	/* map all the lowmem memory banks
+	 *
+	 * IMPORTANT: it's only after this fuction that we can finally allocate
+	 * memory. Before it was impossible because the memory wasn't mapped!
+	 */
 	map_lowmem();
+
+	/* associate memory blocks with corresponding nodes */
+	memory_setup_nodes();
 
 	/* zones size
 	 * (can't do it before because it allocates memory and the page table
