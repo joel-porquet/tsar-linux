@@ -22,8 +22,6 @@ static inline void __iomem *ioremap_cache(phys_addr_t paddr, unsigned long size)
 
 extern void iounmap(void __iomem *vaddr);
 
-/* early ioremap */
-void ioremap_fixed_early_init(void);
 
 #define readb_relaxed readb
 #define readw_relaxed readw

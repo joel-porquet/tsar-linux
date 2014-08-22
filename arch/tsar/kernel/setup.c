@@ -121,12 +121,8 @@ void __init setup_arch(char **cmdline_p)
 	 */
 	early_init_devtree(dtb_start);
 
-	/* make it possible to have virtual mappings before memory and proper
-	 * ioremap are up: necessary for earlyprintk and/or earlycon */
-	ioremap_fixed_early_init();
-
 	/* parse early param of boot_command_line:
-	 * e.g. 'earlyprintk' or 'earlycon' */
+	 * e.g. 'earlyprintk' */
 	parse_early_param();
 
 	/* memory initialization */

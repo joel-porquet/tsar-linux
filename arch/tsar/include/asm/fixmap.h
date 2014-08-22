@@ -10,14 +10,7 @@
  * space. For safety I guess */
 #define FIXADDR_TOP ((unsigned long)(-PAGE_SIZE))
 
-/* On TSAR, we use this fixed mapping area for doing ioremap at an early stage,
- * ie before memory is even initialized thus way before kmalloc is working.
- * This is useful for the early serial console (earlycon) */
 enum fixed_addresses {
-#define FIX_N_IOREMAPS 32 /* 32 slots, thus 32 available pages for ioremapping */
-	FIX_IOREMAP_BEGIN,
-	FIX_IOREMAP_END = FIX_IOREMAP_BEGIN + FIX_N_IOREMAPS - 1,
-
 	__end_of_fixed_addresses
 };
 
