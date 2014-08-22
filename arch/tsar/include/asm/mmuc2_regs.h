@@ -16,7 +16,7 @@
 #define MMU_DCACHE_PREFETCH 	$9 	/* (W)  Data Cache line prefetch */
 #define MMU_SYNC 		$10 	/* (W)  Complete pending writes (note
 					   that MIPS provides us with a sync
-					   inst that cause the same thing) */
+					   instruction which triggers this) */
 #define MMU_IETR 		$11 	/* (R)  Instruction Exception Type Register */
 #define MMU_DETR 		$12 	/* (R)  Data Exception Type Register */
 #define MMU_IBVAR 		$13 	/* (R)  Instruction Bad Virtual Address Register */
@@ -28,6 +28,7 @@
 #define MMU_ICACHE_PA_INVAL 	$19 	/* (W)  Instruction cache inval physical address */
 #define MMU_DCACHE_PA_INVAL 	$20 	/* (W)  Data cache inval physical address */
 #define MMU_LL_RESET		$21 	/* (W)  LLSC reservation buffer invalidation */
+#define MMU_DATA_PADDR_EXT	$24 	/* (RW) 40-bit address extension */
 
 /*
  * Bitfields
@@ -38,9 +39,9 @@
 #define MMU_MODE_DATA_CACHE	0x1	/* data cache */
 
 /* mmu_ietr and mmu_detr */
-#define MMU_RW_MASK	0x1000	/* write or read faulty access */
-#define MMU_ETR_WRITE	0x0000	/* the error concerns a write access (bit #12) */
-#define MMU_ETR_READ	0x1000	/* the error concerns a read access (bit #12) */
+#define MMU_RW_MASK		0x1000	/* write or read faulty access */
+#define MMU_ETR_WRITE		0x0000	/* the error concerns a write access (bit #12) */
+#define MMU_ETR_READ		0x1000	/* the error concerns a read access (bit #12) */
 
 #define MMU_ERR_MASK		0xFFF	/* error of faulty access */
 #define MMU_PT1_UNMAPPED	0x001 	/* Page fault on Table 1 (invalid PTE)	(non fatal error) */
