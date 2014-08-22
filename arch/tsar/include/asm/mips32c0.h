@@ -58,20 +58,20 @@
 #define write_c0_tccontext(val)	__write_c0_reg_sel((val), CP0_TCCONTEXT, 5)
 
 /* set, clear, change macros */
-#define set_c0_status(set)          \
-	({ unsigned int _old, _new; \
-	 _old = read_c0_status();   \
-	 _new = _old | (set);       \
-	 write_c0_status(_new);     \
-	 _old;                      \
+#define set_c0_status(set)		\
+	({ unsigned long _old, _new;	\
+	 _old = read_c0_status();	\
+	 _new = _old | (set);		\
+	 write_c0_status(_new);		\
+	 _old;				\
 	 })
 
-#define clear_c0_status(set)        \
-	({ unsigned int _old, _new; \
-	 _old = read_c0_status();   \
-	 _new = _old & ~(set);      \
-	 write_c0_status(_new);     \
-	 _old;                      \
+#define clear_c0_status(set)		\
+	({ unsigned long _old, _new;	\
+	 _old = read_c0_status();	\
+	 _new = _old & ~(set);		\
+	 write_c0_status(_new);		\
+	 _old;				\
 	 })
 
 #endif /* ! __ASSEMBLY__ */
