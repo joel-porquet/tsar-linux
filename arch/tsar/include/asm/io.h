@@ -5,24 +5,23 @@
 
 #include <asm/pgtable.h>
 
-void __iomem *__ioremap(phys_addr_t paddr, unsigned long size, pgprot_t prot);
+extern void __iomem *__ioremap(phys_addr_t paddr, unsigned long size, pgprot_t prot);
+extern void __iounmap(void __iomem *vaddr);
 
-static inline void __iomem *ioremap(phys_addr_t paddr, unsigned long size)
-{
-	/* default is non-cacheable */
-	return __ioremap(paddr, size, PAGE_KERNEL_NOCACHE);
-}
+/* by default ioremap() is uncached */
+#define ioremap(paddr, size) \
+	__ioremap((paddr), (size), PAGE_KERNEL_NOCACHE)
 
-static inline void __iomem *ioremap_cache(phys_addr_t paddr, unsigned long size)
-{
-	return __ioremap(paddr, size, PAGE_KERNEL);
-}
+#define ioremap_nocache(paddr, size) \
+	__ioremap((paddr), (size), PAGE_KERNEL_NOCACHE)
 
-#define ioremap_nocache ioremap
+#define ioremap_cache(paddr, size) \
+	__ioremap((paddr), (size), PAGE_KERNEL)
 
-extern void iounmap(void __iomem *vaddr);
+#define iounmap(vaddr) \
+	__iounmap(vaddr)
 
-
+/* probably not necessary, only used by a few drivers */
 #define readb_relaxed readb
 #define readw_relaxed readw
 #define readl_relaxed readl
