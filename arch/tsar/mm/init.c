@@ -30,9 +30,6 @@ pgd_t swapper_pg_dir[PTRS_PER_PGD] __section(.bss..swapper_pg_dir);
 /* always null filled page */
 unsigned long empty_zero_page[PAGE_SIZE / sizeof(unsigned long)]  __page_aligned_bss;
 
-/* before memory is initialized, ioremap must use fixed mappings */
-unsigned int mem_init_done = 0;
-
 /* make sure the vmalloc area will be 128MB minimum */
 static void * vmalloc_min __initdata =
 	(void *)(VMALLOC_END - SZ_128M - VMALLOC_OFFSET);
@@ -272,9 +269,6 @@ void __init mem_init(void)
 
 	BUG_ON(VMALLOC_START >= VMALLOC_END);
 	BUG_ON((unsigned long)high_memory > VMALLOC_START);
-
-	/* finally, we're done with memory initialization */
-	mem_init_done = 1;
 }
 
 void __init_refok free_initmem(void)
