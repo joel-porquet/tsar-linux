@@ -4,6 +4,10 @@
 #ifndef __ASSEMBLY__
 
 #include <linux/types.h>
+
+#ifdef CONFIG_HIGHMEM
+#include <asm/kmap_types.h> /* for KM_TYPE_NR */
+#endif
 #include <asm/page.h>
 
 /* Leave an empty page between FIXADDR_TOP and the end of the virtual address
@@ -11,6 +15,11 @@
 #define FIXADDR_TOP ((unsigned long)(-PAGE_SIZE))
 
 enum fixed_addresses {
+#ifdef CONFIG_HIGHMEM
+	/* temporary kernel mappings, used by kmap_atomic */
+	FIX_KMAP_BEGIN,
+	FIX_KMAP_END = FIX_KMAP_BEGIN + (KM_TYPE_NR * NR_CPUS) - 1,
+#endif
 	__end_of_fixed_addresses
 };
 

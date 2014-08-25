@@ -162,12 +162,24 @@ typedef unsigned long pteval_t;
 #define __S111	PAGE_SHARED_EXEC
 
 /*
+ * PKmap range (only for highmem)
+ *
+ * One page worth of PTE2s, aligned on a PMD
+ */
+#define LAST_PKMAP	PTRS_PER_PTE
+#define PKMAP_BASE	((FIXADDR_START - PAGE_SIZE * (LAST_PKMAP + 1)) \
+		& PMD_MASK)
+
+/*
  * Vmalloc range
  */
-#define VMALLOC_OFFSET		SZ_8M
-#define VMALLOC_START		(((unsigned long)high_memory + VMALLOC_OFFSET) \
-					& ~(VMALLOC_OFFSET - 1))
-#define VMALLOC_END		(FIXADDR_START - 2*PAGE_SIZE)
+#define VMALLOC_OFFSET	SZ_8M
+#define VMALLOC_START	((unsigned long)high_memory + VMALLOC_OFFSET)
+#ifdef CONFIG_HIGHMEM
+#define VMALLOC_END	(PKMAP_BASE - 2 * PAGE_SIZE)
+#else
+#define VMALLOC_END	(FIXADDR_START - 2 * PAGE_SIZE)
+#endif
 
 /*
  * Zero page

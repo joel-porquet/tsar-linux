@@ -51,8 +51,6 @@ static void __init memory_init(void)
 	init_mm.end_data   = (unsigned long) _edata;
 	init_mm.brk	   = (unsigned long) _end;
 
-	/* TODO: deal with HIGHMEM */
-
 #ifdef CONFIG_MEMBLOCK_DEBUG
 	/* debug the memblock API */
 	memblock_debug = 1;
@@ -83,8 +81,6 @@ static void __init memory_init(void)
 		pr_warning("Warning: memory above %ldMB cannot be used"
 				" (!CONFIG_HIGHMEM).\n",
 				(unsigned long)(lowmem_limit >> 20));
-#else
-#error Not yet supported!
 #endif
 		max_low_pfn = PFN_DOWN(lowmem_limit);
 	} else {
@@ -121,7 +117,7 @@ static void __init prepare_page_table(void)
 	 * the memory bank. Also we can assume, the kernel image is way smaller
 	 * than the first memory bank anyway */
 	end = memblock.memory.regions[0].base + memblock.memory.regions[0].size;
-	if (end >= lowmem_limit)
+	if (unlikely(end >= lowmem_limit))
 		end = lowmem_limit;
 
 	/* clear the mapping from the end of the first block of lowmem up to
@@ -177,6 +173,68 @@ static void __init map_lowmem(void)
 	}
 }
 
+static size_t __init pgd_range_count(unsigned long start, unsigned long end)
+{
+	size_t count = 0;
+
+	while (start != end) {
+		count++;
+		start = pgd_addr_end(start, end);
+	};
+
+	return count;
+}
+
+static void __init map_pmd_table(pgd_t *pgd, unsigned long vaddr, phys_addr_t paddr)
+{
+	pmd_t *pmd = pmd_offset((pud_t*)pgd, vaddr);
+
+	/* table mapping (PTD) */
+	set_pmd(pmd, __pmd(paddr >> PMD_SHIFT | __PMD_TABLE));
+}
+
+static void __init pgd_range_init(unsigned long start, unsigned long end)
+{
+	size_t count = pgd_range_count(start, end);
+	pgd_t *pgd;
+	phys_addr_t pte = 0;
+
+	if (unlikely(!count))
+		return;
+
+	/* allocate contiguous memory to hold pte pages */
+	pte = memblock_alloc(count * PAGE_SIZE, PAGE_SIZE);
+	BUG_ON(!pte);
+
+	pgd = pgd_offset_kernel(start);
+
+	while (start != end) {
+		unsigned long next;
+		next = pgd_addr_end(start, end);
+
+		map_pmd_table(pgd, start, pte);
+
+		start = next;
+		pgd++;
+		pte += (PTRS_PER_PTE * sizeof(pte_t));
+	};
+}
+
+static void __init fixmap_kmap_init(void)
+{
+	/* allocate second level page table(s) for the fixmap area */
+	pgd_range_init(FIXADDR_START, FIXADDR_TOP);
+
+#ifdef CONFIG_HIGHMEM
+	/* allocate second level page table(s) for the pkmap area */
+	pgd_range_init(PKMAP_BASE, PKMAP_BASE + PAGE_SIZE * LAST_PKMAP);
+
+	/* initialize highmem/pkmap layer */
+	kmap_init();
+#endif
+
+}
+
 static void __init zones_size_init(void)
 {
 	unsigned long max_zone_pfns[MAX_NR_ZONES];
@@ -185,7 +243,6 @@ static void __init zones_size_init(void)
 
 	max_zone_pfns[ZONE_NORMAL] = max_low_pfn;
 #ifdef CONFIG_HIGHMEM
-#error Not yet supported!
 	max_zone_pfns[ZONE_HIGHMEM] = max_pfn;
 #endif
 
@@ -216,10 +273,37 @@ void __init paging_init(void)
 	/* associate memory blocks with corresponding nodes */
 	memory_setup_nodes();
 
+	fixmap_kmap_init();
+
 	/* zones size
 	 * (can't do it before because it allocates memory and the page table
 	 * is not ready until now) */
 	zones_size_init();
+}
+
+static void __init free_highmem(void)
+{
+#ifdef CONFIG_HIGHMEM
+	struct memblock_region *reg;
+	unsigned long pfn;
+
+	/* scan all memblocks */
+	for_each_memblock(memory, reg) {
+		unsigned long start_pfn = PFN_UP(reg->base);
+		unsigned long end_pfn = PFN_DOWN(reg->base + reg->size);
+
+		/* memblock is lowmem, skip it */
+		if (end_pfn <= max_low_pfn)
+			continue;
+		/* memblock is across boundary, skip the beginning */
+		if (start_pfn < max_low_pfn)
+			start_pfn = max_low_pfn;
+
+		/* free high pages of the memblock */
+		for (pfn = start_pfn; pfn < end_pfn; pfn++)
+			free_highmem_page(pfn_to_page(pfn));
+	}
+#endif
 }
 
 void __init mem_init(void)
@@ -235,11 +319,19 @@ void __init mem_init(void)
 	/* this will put all low memory onto the freelists */
 	free_all_bootmem();
 
+	/* free high memory */
+	free_highmem();
+
 	mem_init_print_info(NULL);
 
 	pr_info("Virtual kernel memory layout:\n");
 	pr_cont("    fixmap  : 0x%08lx - 0x%08lx   (%4ld kB)\n",
 			FIXADDR_START, FIXADDR_TOP, FIXADDR_SIZE >> 10);
+#ifdef CONFIG_HIGHMEM
+	pr_cont("    pkmap   : 0x%08lx - 0x%08lx   (%4ld kB)\n",
+			PKMAP_BASE, PKMAP_BASE + LAST_PKMAP * PAGE_SIZE,
+			(LAST_PKMAP * PAGE_SIZE) >> 10);
+#endif
 	pr_cont("    vmalloc : 0x%08lx - 0x%08lx   (%4ld MB)\n",
 			VMALLOC_START, VMALLOC_END,
 			(VMALLOC_END - VMALLOC_START) >> 20);

@@ -202,6 +202,14 @@ config TSAR_MULTI_CLUSTER
 config ARCH_DISCONTIGMEM_ENABLE
 	bool
 
+config HIGHMEM
+	bool "High memory support"
+	default y
+	help
+		On 32-bit systems, the kernel is only able to map 896MiB worth
+		of memory. Enable this option to access and use memory above
+		this limit.
+
 config HIGHPTE
 	bool "Allocate page tables in highmem"
 	depends on HIGHMEM
