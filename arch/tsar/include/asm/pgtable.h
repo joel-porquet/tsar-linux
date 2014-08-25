@@ -213,11 +213,11 @@ extern pgd_t swapper_pg_dir[PTRS_PER_PGD];
 	do { set_pte_at(mm, addr, ptep, __pte(0)); } while (0)
 
 #define set_pte_at(mm, addr, ptep, pteval) set_pte(ptep, pteval)
-#define set_pte(ptep, pteval)                     \
-	do {                                      \
-		ptep->pte_high = pteval.pte_high; \
-		smp_wmb();                        \
-		ptep->pte_low = pteval.pte_low;   \
+#define set_pte(ptep, pteval)				\
+	do {						\
+		(ptep)->pte_high = (pteval).pte_high;	\
+		smp_wmb();				\
+		(ptep)->pte_low = (pteval).pte_low;	\
 	} while (0)
 
 #define mk_pte(page, prot)	pfn_pte(page_to_pfn(page), prot)
@@ -233,7 +233,7 @@ extern pgd_t swapper_pg_dir[PTRS_PER_PGD];
 #define pgd_offset(mm, addr)	((mm)->pgd + pgd_index(addr))
 
 #define pgd_offset_kernel(addr)	pgd_offset(&init_mm, addr)
-#define pgd_offset_k pgd_offset_kernel
+#define pgd_offset_k		pgd_offset_kernel
 
 /* page table */
 #define pte_index(addr)		(((addr) >> PAGE_SHIFT) & (PTRS_PER_PTE - 1))
@@ -245,7 +245,7 @@ extern pgd_t swapper_pg_dir[PTRS_PER_PGD];
 /* if the pte is part of high memory, it must be kmapped first */
 #define pte_offset_map(dir, addr)	\
 	((pte_t *)kmap_atomic(pmd_page(*(dir))) + pte_index(addr))
-#define pte_unmap(pte) (kunmap_atomic(pte))
+#define pte_unmap(pte) kunmap_atomic(pte)
 #else
 #define pte_offset_map(dir, addr)	\
 	((pte_t *)page_address(pmd_page(*(dir))) + pte_index(addr))
