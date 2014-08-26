@@ -9,11 +9,11 @@
 / {
 	compatible = "tsar";
 	#address-cells = <2>;
-	#size-cells = <2>;
+	#size-cells = <1>;
 
 	chosen {
 		/* default peripheral to use when configuring earlyprintk */
-		/* node: it implies that a 'tty' node must be defined */
+		/* note: it implies that a 'tty' node must be defined! */
 		linux,stdout-path = &tty;
 	};
 
@@ -21,7 +21,7 @@
 
 	cpus { };
 
-	vci { };
+	iovci { };
 
 	clocks { };
 };
