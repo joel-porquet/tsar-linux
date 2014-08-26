@@ -279,8 +279,10 @@ static int vci_tty_pf_probe(struct platform_device *pdev)
 	if (id < 0 || id >= vci_tty_line_count)
 		return -EINVAL;
 
-	/* get virq of the rx_irq that links the vci_tty to the parent icu (ie
-	 * vci_icu) */
+	/* get virq of the rx_irq that links the vci_tty to the parent icu (eg
+	 * vci_xicu).
+	 * Note that the virq has already been computed beforehand, with
+	 * respect to the irq_domain it belongs to. */
 	rx_irq = platform_get_irq(pdev, 0);
 	if (rx_irq < 0)
 		panic("%s: failed to get IRQ\n", pdev->name);
