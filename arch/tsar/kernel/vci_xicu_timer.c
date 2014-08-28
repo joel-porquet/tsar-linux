@@ -107,7 +107,7 @@ static void vci_xicu_cpu_timer_init(struct clock_event_device *evt)
 
 	clockevents_config_and_register(evt, clk_rate,
 			1, 0xffffffff);
-	enable_percpu_irq(evt->irq, 0);
+	enable_percpu_irq(evt->irq, IRQ_TYPE_NONE);
 }
 
 #ifdef CONFIG_SMP
@@ -179,7 +179,6 @@ static void __init vci_xicu_timer_init(struct device_node *of_node)
 
 	/* Immediately configure the timer on the boot cpu */
 	vci_xicu_cpu_timer_init(this_cpu_ptr(vci_xicu_clockevent));
-
 }
 
 CLOCKSOURCE_OF_DECLARE(vci_xicu_timer, "soclib,vci_xicu_timer", vci_xicu_timer_init);

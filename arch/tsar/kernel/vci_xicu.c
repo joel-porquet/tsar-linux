@@ -379,7 +379,7 @@ static unsigned int vci_xicu_ipi_irq;
 
 static void vci_xicu_cpu_ipi_init(void)
 {
-	enable_percpu_irq(vci_xicu_ipi_irq, 0);
+	enable_percpu_irq(vci_xicu_ipi_irq, IRQ_TYPE_NONE);
 }
 
 static void vci_xicu_cpu_ipi_stop(void)
