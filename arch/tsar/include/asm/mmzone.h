@@ -24,9 +24,8 @@ static inline int pfn_to_nid(unsigned long pfn)
 {
 	int node;
 
-	for (node = 0; node < MAX_NUMNODES; node++) {
-		if (pfn >= node_start_pfn(node) &&
-				pfn < node_end_pfn(node))
+	for_each_online_node(node) {
+		if (pfn >= node_start_pfn(node) && pfn < node_end_pfn(node))
 			break;
 	}
 
@@ -39,13 +38,22 @@ static inline int pfn_to_nid(unsigned long pfn)
 #else
 
 /* fast version */
-#define pfn_to_nid(pfn)	paddr_to_nid((pfn) << PAGE_SHIFT)
+static inline int pfn_to_nid(unsigned long pfn)
+{
+	unsigned int nid = paddr_to_nid(pfn << PAGE_SHIFT);
+	if (nid < MAX_NUMNODES && NODE_DATA(nid)
+			&& pfn >= node_start_pfn(nid)
+			&& pfn < node_end_pfn(nid))
+		return nid;
+	return NUMA_NO_NODE;
+}
 
 #endif
 
-static inline int pfn_valid(int pfn)
+static inline int pfn_valid(unsigned long pfn)
 {
-	return (pfn_to_nid(pfn) != NUMA_NO_NODE);
+	unsigned int nid = pfn_to_nid(pfn);
+	return (nid != NUMA_NO_NODE);
 }
 
 #endif
