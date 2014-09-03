@@ -1,3 +1,12 @@
+/*
+ * This file is subject to the terms and conditions of the GNU General Public
+ * License.  See the file "COPYING" in the main directory of this archive for
+ * more details.
+ *
+ * Copyright (C) 2014 Pierre and Marie Curie University
+ *  Joël Porquet <joel.porquet@lip6.fr>
+ */
+
 #include <linux/ioport.h>
 #include <linux/memblock.h>
 #include <linux/mmzone.h>
