@@ -21,13 +21,7 @@
 /* physical address */
 #define pa(X) ((X) - PAGE_OFFSET)
 
-__HEAD
-ENTRY(kernel_entry)
-	/*
-	 * All the cpus enter here. Non-boot cpus are quickly redirected to
-	 * the secondary entry point.
-	 */
-
+.macro CPU_INIT hw_cpu_reg=t0
 	/*
 	 * zero CP0_STATUS: kernel mode, interrupts disabled
 	 */
@@ -38,11 +32,30 @@ ENTRY(kernel_entry)
 	mtc0	zero, CP0_DEBUG
 #endif
 
+	/* get the hardware cpu id */
+	mfc0	\hw_cpu_reg, CP0_EBASE, 1
+	andi	\hw_cpu_reg, EBASE_CPUHWID
+.endm
+
+__HEAD
+ENTRY(kernel_entry)
+	/*
+	 * - CONFIG_SMP_IPI_BOOT: only the boot cpu enters here.
+	 * - !CONFIG_SMP_IPI_BOOT: all the cpus enter here.
+	 */
+
+	/*
+	 * Put the cpu in a known state and get its hardware identifier
+	 */
+	CPU_INIT
+
 #ifdef CONFIG_SMP
-	/* get the hardware cpuid to determine whether we are the boot cpu */
-	mfc0	t0, CP0_EBASE, 1
-	andi	t0, EBASE_CPUHWID	/* extract cpu hardware id */
+	/* secondary boot cpus (!CPU#0) go directly to the secondary entry
+	 * point */
 	bnez	t0, secondary_kernel_entry
+#else
+	/* !CONFIG_SMP on a multiprocessor system: fail the secondary cpus */
+	bnez	t0, failed_boot
 #endif
 
 	/*
@@ -147,17 +160,29 @@ ENDPROC(enable_paging)
 #ifdef CONFIG_SMP
 ENTRY(secondary_kernel_entry)
 	/*
-	 * Entry point for non-boot cpus
-	 * - t0 contains the hardware cpuid
+	 * Entry point for secondary cpus, either directly if
+	 * CONFIG_SMP_IPI_BOOT or redirected via kernel_entry if
+	 * !CONFIG_SMP_IPI_BOOT.
 	 */
 
-# if !defined (CONFIG_SMP_IPI_BOOT)
+# ifdef CONFIG_SMP_IPI_BOOT
+	/* Put the cpu in a known state and gets its hardware identifier */
+	/* Already done when !CONFIG_SMP_IPI_BOOT */
+	CPU_INIT
+# endif
+
 	/*
-	 * spin until our cpuid is called
+	 * is our cpuid called?
 	 */
 	la	t1, pa(secondary_cpu_boot)
 spin_wait_boot:
 	lw	t2, 0(t1)
+# ifdef CONFIG_SMP_IPI_BOOT
+	/* should not happen: we were woken up but it's not us in
+	 * secondary_cpu_boot! */
+	bne	t2, t0, failed_boot
+# else
+	/* spin back until we're called */
 	bne	t2, t0, spin_wait_boot
 # endif
 
@@ -187,3 +212,8 @@ secondary_va_jump:
 
 ENDPROC(secondary_kernel_entry)
 #endif
+
+ENTRY(failed_boot)
+	/* infinite loop */
+20:	b	20b
+ENDPROC(failed_boot)

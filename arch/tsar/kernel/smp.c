@@ -361,7 +361,6 @@ void __init smp_prepare_cpus(unsigned int max_cpus)
  */
 
 volatile unsigned long secondary_cpu_boot __cacheline_aligned = INVALID_HWCPUID;
-
 volatile unsigned long secondary_cpu_gp __cacheline_aligned;
 
 #ifdef CONFIG_SMP_IPI_BOOT
@@ -376,19 +375,17 @@ int __cpu_up(unsigned int cpu, struct task_struct *idle)
 	/* setup the secondary_cpu_gp to tell the cpu where to find its global
 	 * pointer (i.e. its idle thread_info structure) */
 	secondary_cpu_gp = (unsigned long)task_thread_info(idle);
-
-#ifdef CONFIG_SMP_IPI_BOOT
-	/* in LETI system, secondary cpus have been put to sleep by the
-	 * preloader. They are waiting for an IPI to tell them where to jump
-	 * to.
-	 */
-	smp_ipi_call(cpumask_of(cpu), __pa(kernel_entry));
-#else
 	/* unlock cpu from spin wait and make it boot */
 	secondary_cpu_boot = cpu_logical_map(cpu);
 
 	/* force flushing writes in memory */
 	wmb();
+
+#ifdef CONFIG_SMP_IPI_BOOT
+	/* in IPI boot, secondary cpus have been put to sleep by the preloader.
+	 * They are waiting for an IPI to tell them where to jump to. In this
+	 * case, they jump directly to the secondary entry point. */
+	smp_ipi_call(cpumask_of(cpu), __pa(secondary_kernel_entry));
 #endif
 
 	/* wait 1s until the cpu is online */
