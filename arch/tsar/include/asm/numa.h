@@ -16,6 +16,7 @@ extern unsigned char tsar_xwidth;
  */
 #define PA_TO_CLUSTERID_X(pa)	(((pa) >> 36) & 0xF)
 #define PA_TO_CLUSTERID_Y(pa)	(((pa) >> 32) & 0xF)
+#define PA_TO_LOCAL_ADDR(pa)	((pa) & 0xFFFFFFFF)
 
 /*
  * 10-bit hw cpuid are structured as:
@@ -24,6 +25,7 @@ extern unsigned char tsar_xwidth;
  */
 #define HWCPUID_TO_CLUSTERID_X(cpu)	(((cpu) >> 6) & 0xF)
 #define HWCPUID_TO_CLUSTERID_Y(cpu)	(((cpu) >> 2) & 0xF)
+#define HWCPUID_TO_LOCAL_ID(cpu)	((cpu) & 0x3)
 
 int paddr_to_nid(phys_addr_t paddr);
 
@@ -38,6 +40,11 @@ void __init cpu_setup_nodes(void);
  */
 extern unsigned char cpu_node_map[NR_CPUS];
 extern cpumask_t node_cpumask_map[MAX_NUMNODES];
+
+#else
+
+#define HWCPUID_TO_LOCAL_ID(cpu)	(cpu)
+#define paddr_to_nid(paddr)	(0)
 
 #endif
 
