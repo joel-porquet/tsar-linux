@@ -16,10 +16,10 @@ void __init cpu_setup_nodes(void)
 		unsigned char x = HWCPUID_TO_CLUSTERID_X(hwcpuid);
 		unsigned char y = HWCPUID_TO_CLUSTERID_Y(hwcpuid);
 
-		unsigned char nid = x * tsar_ywidth + y;
+		unsigned char nid = y * tsar_xwidth + x;
 
 		/* check the cpu is inside the grid */
-		BUG_ON((x > tsar_xwidth) || (y > tsar_ywidth));
+		BUG_ON((x >= tsar_xwidth) || (y >= tsar_ywidth));
 		BUG_ON(nid >= MAX_NUMNODES);
 		/* check the corresponding node is online */
 		BUG_ON(!node_online(nid));
