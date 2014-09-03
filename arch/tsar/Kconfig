@@ -194,9 +194,28 @@ config SOCLIB_VCI_XICU
 		- an IPI controller.
 		<http://www.soclib.fr/trac/dev/wiki/Component/VciXicu>
 
-config SOCLIB_VCI_XICU_LETI
+config SOCLIB_VCI_XICU_HWI
 	bool
-	depends on SOCLIB_VCI_XICU && SMP
+	default y
+	depends on SOCLIB_VCI_XICU
+	help
+		Enables XICUs to be connected to local devices and thus receive
+		hardware interrupts (HWI). Otherwise XICUs can only get timer
+		and software-triggered interrupts (PTI and WTI). The latter is
+		perfectly valid and sufficient when using an IOPIC for
+		transmitting interrupts from devices.
+
+config SOCLIB_VCI_XICU_CPUIRQS_SHIFT
+	int "Number of irq output lines connected to a cpu (as a power of 2)"
+	range 0 2
+	default "0" if !TSAR_LETI
+	default "2" if TSAR_LETI
+	depends on SOCLIB_VCI_XICU
+	help
+		In the LETI system, ranges of 4 output lines from a XICU are
+		connected to a same processor (range 0-3 to local processor 0,
+		range 4-7 to local processor 1, etc.). In most other systems,
+		there is only one output line per processor.
 
 config SOCLIB_VCI_MTTY
 	bool

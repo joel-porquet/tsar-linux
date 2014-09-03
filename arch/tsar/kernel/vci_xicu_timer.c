@@ -15,6 +15,7 @@
 #include <linux/interrupt.h>
 #include <linux/ioport.h>
 #include <linux/of.h>
+#include <linux/of_address.h>
 
 #include <asm/io.h>
 #include <asm/smp_map.h>
@@ -25,23 +26,21 @@
  * Driver for the SoCLib VCI XICU Timer (soclib,vci_xicu_timer)
  */
 
-static unsigned long vci_xicu_timer_period;
-static unsigned long clk_rate;
-
 static struct clock_event_device __percpu *vci_xicu_clockevent;
 
-static unsigned int vci_xicu_timer_irq;
-
-static int vci_xicu_timer_set_next_event(unsigned long delta,
-		struct clock_event_device *evt)
+static int vci_xicu_timer_set_next_event(unsigned long delta, struct
+		clock_event_device *evt)
 {
-	unsigned long hwcpuid = cpu_logical_map(smp_processor_id());
+	int cpu = smp_processor_id();
+	struct vci_xicu *xicu;
+	unsigned long hw_cpu, node_hw_cpu;
 
-	BUG_ON(hwcpuid == INVALID_HWCPUID);
+	compute_hwcpuid(cpu, &hw_cpu, &node_hw_cpu);
+	xicu = vci_xicu[cpu_to_node(cpu)];
 
-	/* setup timer for one shot */
-	__raw_writel(0xffffffff, VCI_XICU_REG(XICU_PTI_PER, hwcpuid));
-	__raw_writel(delta, VCI_XICU_REG(XICU_PTI_VAL, hwcpuid));
+	/* setup timer for one shot with the specified delta */
+	writel(ULONG_MAX, VCI_XICU_REG(xicu, XICU_PTI_PER, node_hw_cpu));
+	writel(delta, VCI_XICU_REG(xicu, XICU_PTI_VAL, node_hw_cpu));
 
 	return 0;
 }
@@ -49,42 +48,45 @@ static int vci_xicu_timer_set_next_event(unsigned long delta,
 static void vci_xicu_timer_set_mode(enum clock_event_mode mode,
 		struct clock_event_device *evt)
 {
-	unsigned long hwcpuid = cpu_logical_map(smp_processor_id());
+	int cpu = smp_processor_id();
+	struct vci_xicu *xicu;
+	unsigned long hw_cpu, node_hw_cpu;
 
-	BUG_ON(hwcpuid == INVALID_HWCPUID);
+	compute_hwcpuid(cpu, &hw_cpu, &node_hw_cpu);
+	xicu = vci_xicu[cpu_to_node(cpu)];
 
-	if (mode == CLOCK_EVT_MODE_PERIODIC)
-	{
-		/* setup timer for periodic ticks */
-		__raw_writel(vci_xicu_timer_period,
-				VCI_XICU_REG(XICU_PTI_PER, hwcpuid));
-		__raw_writel(vci_xicu_timer_period,
-				VCI_XICU_REG(XICU_PTI_VAL, hwcpuid));
+	if (mode == CLOCK_EVT_MODE_PERIODIC) {
+		writel(xicu->clk_period, VCI_XICU_REG(xicu, XICU_PTI_PER,
+					node_hw_cpu));
+		writel(xicu->clk_period, VCI_XICU_REG(xicu, XICU_PTI_VAL,
+					node_hw_cpu));
 	} else {
 		/* disable timer */
-		__raw_writel(0, VCI_XICU_REG(XICU_PTI_PER, hwcpuid));
-		__raw_writel(0, VCI_XICU_REG(XICU_PTI_VAL, hwcpuid));
+		writel(0, VCI_XICU_REG(xicu, XICU_PTI_PER, node_hw_cpu));
+		writel(0, VCI_XICU_REG(xicu, XICU_PTI_VAL, node_hw_cpu));
 	}
 }
 
 static irqreturn_t vci_xicu_timer_interrupt(int irq, void *dev_id)
 {
 	struct clock_event_device *evt = dev_id;
-	unsigned long hwcpuid = cpu_logical_map(smp_processor_id());
+	int cpu = smp_processor_id();
+	struct vci_xicu *xicu;
+	unsigned long hw_cpu, node_hw_cpu;
 
-	BUG_ON(hwcpuid == INVALID_HWCPUID);
+	compute_hwcpuid(cpu, &hw_cpu, &node_hw_cpu);
+	xicu = vci_xicu[cpu_to_node(cpu)];
 
-	if (evt->mode == CLOCK_EVT_MODE_ONESHOT)
-	{
-		/* if one-shot, ack and deactivate the IRQ */
+	if (evt->mode == CLOCK_EVT_MODE_ONESHOT) {
+		/* if one-shot, ack and deactivate the IRQ by writing */
 		pr_debug("CPU%ld: one-shot time INT at cycle %ld\n",
-				hwcpuid, read_c0_count());
-		__raw_writel(0, VCI_XICU_REG(XICU_PTI_PER, hwcpuid));
+				hw_cpu, read_c0_count());
+		writel(0, VCI_XICU_REG(xicu, XICU_PTI_PER, node_hw_cpu));
 	} else {
-		/* otherwise just ack the IRQ */
+		/* otherwise just ack the IRQ by reading */
 		pr_debug("CPU%ld: periodic time INT at cycle %ld\n",
-				hwcpuid, read_c0_count());
-		__raw_readl(VCI_XICU_REG(XICU_PTI_ACK, hwcpuid));
+				hw_cpu, read_c0_count());
+		readl(VCI_XICU_REG(xicu, XICU_PTI_ACK, node_hw_cpu));
 	}
 
 	evt->event_handler(evt);
@@ -94,7 +96,10 @@ static irqreturn_t vci_xicu_timer_interrupt(int irq, void *dev_id)
 
 static void vci_xicu_cpu_timer_init(struct clock_event_device *evt)
 {
+	struct vci_xicu *xicu;
 	int cpu = smp_processor_id();
+
+	xicu = vci_xicu[cpu_to_node(cpu)];
 
 	evt->name = "vci_xicu_per_cpu_timer";
 	evt->features = CLOCK_EVT_FEAT_PERIODIC | CLOCK_EVT_FEAT_ONESHOT |
@@ -103,10 +108,9 @@ static void vci_xicu_cpu_timer_init(struct clock_event_device *evt)
 	evt->set_next_event = vci_xicu_timer_set_next_event;
 	evt->cpumask = cpumask_of(cpu);
 	evt->rating = 300;
-	evt->irq = vci_xicu_timer_irq;
+	evt->irq = xicu->timer_irq;
 
-	clockevents_config_and_register(evt, clk_rate,
-			1, 0xffffffff);
+	clockevents_config_and_register(evt, xicu->clk_rate, 1, ULONG_MAX);
 	enable_percpu_irq(evt->irq, IRQ_TYPE_NONE);
 }
 
@@ -131,6 +135,7 @@ static int vci_xicu_timer_notify(struct notifier_block *self,
 	return NOTIFY_OK;
 }
 
+/* Notifier for secondary cpus to configure their percpu PTI interrupt */
 static struct notifier_block vci_xicu_timer_notifier = {
 	.notifier_call = vci_xicu_timer_notify,
 };
@@ -140,45 +145,54 @@ static unsigned long __init vci_xicu_timer_get_clock(struct device_node *of_node
 {
 	static struct clk *clk;
 
-	/* get the clock associated to the timer */
 	clk = of_clk_get(of_node, 0);
-
 	BUG_ON(IS_ERR(clk));
-
 	BUG_ON(clk_prepare_enable(clk));
-
 	return clk_get_rate(clk);
 }
 
 static void __init vci_xicu_timer_init(struct device_node *of_node)
 {
+	static bool __initdata first_call = true;
+	struct resource res;
+	struct vci_xicu *xicu;
+	unsigned long node;
+
 	/*
 	 * note: the component has already been mapped as an
 	 * interrupt-controller
 	 */
 
-	clk_rate = vci_xicu_timer_get_clock(of_node);
+	BUG_ON(of_address_to_resource(of_node, 0, &res));
+	node = paddr_to_nid(res.start);
+	xicu = vci_xicu[node];
+	BUG_ON(!xicu);
 
-	BUG_ON(!clk_rate);
+	xicu->clk_rate = vci_xicu_timer_get_clock(of_node);
+	BUG_ON(!xicu->clk_rate);
+	xicu->clk_period = DIV_ROUND_CLOSEST(xicu->clk_rate, HZ);
 
-	/* compute the tick value in terms of cycle */
-	vci_xicu_timer_period = DIV_ROUND_CLOSEST(clk_rate, HZ);
+	xicu->timer_irq = irq_create_mapping(xicu->irq_domain, PTI_IRQ);
 
-	vci_xicu_timer_irq = irq_create_mapping(vci_xicu_irq_domain,
-			VCI_XICU_PTI_PER_CPU_IRQ);
-
+	if (first_call) {
+		vci_xicu_clockevent = alloc_percpu(struct clock_event_device);
 #ifdef CONFIG_SMP
-	register_cpu_notifier(&vci_xicu_timer_notifier);
+		/* the secondary cpus will enable their timer when they boot */
+		register_cpu_notifier(&vci_xicu_timer_notifier);
 #endif
+		first_call = false;
+	}
 
-	vci_xicu_clockevent = alloc_percpu(struct clock_event_device);
-
-	BUG_ON(request_percpu_irq(vci_xicu_timer_irq, vci_xicu_timer_interrupt,
+	BUG_ON(request_percpu_irq(xicu->timer_irq, vci_xicu_timer_interrupt,
 				"vci_xicu_per_cpu_timer",
 				vci_xicu_clockevent));
 
-	/* Immediately configure the timer on the boot cpu */
-	vci_xicu_cpu_timer_init(this_cpu_ptr(vci_xicu_clockevent));
+	/* configure the timer of the boot cpu only when the xicu of the boot
+	 * cpu has been created (which is not necessarily during the first
+	 * call, since it depends in which order the device tree is analysed)
+	 */
+	if (numa_node_id() == node)
+		vci_xicu_cpu_timer_init(this_cpu_ptr(vci_xicu_clockevent));
 }
 
 CLOCKSOURCE_OF_DECLARE(vci_xicu_timer, "soclib,vci_xicu_timer", vci_xicu_timer_init);

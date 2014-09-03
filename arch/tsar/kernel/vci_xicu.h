@@ -4,47 +4,73 @@
 #include <linux/compiler.h>
 #include <linux/irqdomain.h>
 
+#include <asm/numa.h>
+
 /*
  * SoCLib VCI Generic Interrupt Controller Unit (soclib,vci_xicu)
  *
  * This component provides:
  * - 32 external hw irqs (HWI)
- * - 32 internal soft irqs (IPI)
+ * - 32 internal soft irqs (WTI)
  * - 32 internal timers (PTI)
- * - 32 outputs
+ * - 32 outputs (IRQ)
  *
- * Here we slightly limit this flexibility:
- * - in regular systems, there is one output dedicated per cpu: cpu[n] <=
- *   output[n]. In LETI system, there is four dedicated outputs per cpu: cpu[n]
- *   <= output[n * 4] to output [(n * 4) + 3]. But we only use the first one.
- * - the 32 external HWI are shared, in the sense that they can migrate from
- *   one cpu (usually the boot cpu at bootime) to another at runtime.
- * - we use one internal IPI and one internal PTI per cpu. From cpu view and
- *   within the xicu irq domain, the IPI is always irq #0, while the PTI is
- *   always irq #1. The numbering of the HWI starts at 2.
- *   E.g.:
- *   cpu[n] <= output[N] <= irq[0]   <= ipi[n]
- *   cpu[n] <= output[N] <= irq[1]   <= pti[n]
- *   cpu[n] <= output[N] <= irq[2+m] <= hwi[m] (relevant only if hwi[m] is
- *   unmasked for cpu[n])
+ * The XICU is fully flexible and enables any combination possible, but here we
+ * limit this flexibility for our needs:
  *
- *      Note: N is n for regular systems, but is (n * 4) for LETI system.
+ * - We consider that there is a fixed number of IRQ output lines
+ *   (2^CONFIG_SOCLIB_VCI_XICU_CPUIRQS_SHIFT) connecting a xicu to each cpu of
+ *   the same cluster.
+ *
+ *   - In most systems, there is one IRQ per cpu (ie
+ *   CONFIG_SOCLIB_VCI_XICU_CPUIRQS_SHIFT = 0) such as cpu[n] <= output[n].
+ *
+ *   - In other systems, such a LETI, there is four dedicated IRQs per cpu (ie
+ *   CONFIG_SOCLIB_VCI_XICU_CPUIRQS_SHIFT = 2) such as cpu[n] <=
+ *   outputs[(n*4):(n*4)+3]. But we always only use the first IRQ of a certain
+ *   range.
+ *
+ * - If the external HWIs are activated (see CONFIG_SOCLIB_VCI_XICU_HWI token),
+ *   they can migrate from one cpu to another one in the same cluster at
+ *   runtime.
+ *
+ * - In this driver, we use a fixed number of internal interrupts per cpu:
+ *   - 1 internal IPI (for inter cpu communication when SMP),
+ *   - 1 internal PTI (percpu timer).
+ *   The numbering of the HWI starts after this fixed number of internal
+ *   interrupts, with respect to the interrupt numbering in a irq domain.
+ *
+ * - When the IOPIC is enabled, the available WTIs are used as an extension of
+ *   HWIs.
  */
 
-/* IPI IRQ is always #0 */
-#define VCI_XICU_IPI_PER_CPU_IRQ	0
-/* PTI IRQ is always #1 */
-#define VCI_XICU_PTI_PER_CPU_IRQ	1
-/* hw IRQs start at #2 */
-#define VCI_XICU_MAX_PER_CPU_IRQ	2
+#ifdef CONFIG_TSAR_MULTI_CLUSTER
+/* 4 cpus per cluster when doing multi-cluster*/
+#define MAX_CPU_PER_CLUSTER 4
+#else
+/* otherwise no limit (actually 32) */
+#define MAX_CPU_PER_CLUSTER NR_CPUS
+#endif
+
+enum hwirq_map {
+	/* percpu IRQs */
+#ifdef CONFIG_SMP
+	IPI_IRQ,
+#endif
+	PTI_IRQ,
+
+	/* global hardware IRQs */
+	MAX_PCPU_IRQS,
+	HWIRQ_START = MAX_PCPU_IRQS,
+};
 
 /* The 4Kb page of the XICU is partitioned into 32-bit configuration registers,
  * which is determined by the combination of functions and indexes (32 at most)
  * FUNC (5 bits) | INDEX (5 bits) | 00
  */
-#define VCI_XICU_REG(func, index) \
-	((unsigned long *)vci_xicu_virt_base + \
-	(((((func) & 0x1f) << 5) | ((index) & 0x1f)) & 0x3ff))
+#define VCI_XICU_REG(xicu, func, index) \
+	((unsigned long *)((xicu)->virt) + \
+	 (((((func) & 0x1f) << 5) | ((index) & 0x1f)) & 0x3ff))
 
 /* VCI_XICU functions */
 #define XICU_WTI_REG		0x0 	/* indexed by WTI_INDEX	(R/W) */
@@ -85,16 +111,53 @@
 #define XICU_CONFIG_HWI_COUNT(conf) (((conf) >> 8)  & 0x3f)
 #define XICU_CONFIG_PTI_COUNT(conf) (((conf) >> 0)  & 0x3f)
 
-extern void __iomem *vci_xicu_virt_base;
-extern struct irq_domain *vci_xicu_irq_domain;
+/* Map a cpu number to the first IRQ output connected to it. On some systems,
+ * this is not an identity mapping (CPU0 connected to IRQ0) but there can be
+ * ranges of 2^CONFIG_SOCLIB_VCI_XICU_CPUIRQS_SHIFT IRQs connected to each cpu
+ */
+#define VCI_XICU_CPUID_MAP(x) ((x) << CONFIG_SOCLIB_VCI_XICU_CPUIRQS_SHIFT)
 
-/* Convert hardware cpu number into xicu irq output */
-#ifdef CONFIG_SOCLIB_VCI_XICU_LETI
-/* on LETI hardware system, there are 4 irq outputs per cpu */
-# define VCI_XICU_CPUID_MAP(x) ((x) << 2)
-#else
-/* on regular hardware system, there is 1 irq output per cpu */
-# define VCI_XICU_CPUID_MAP(x) (x)
-#endif
+/*
+ * Description of a XICU
+ */
+struct vci_xicu {
+	raw_spinlock_t	lock;	/* lock for protecting access to xicu
+				   (especially for the shared HW IRQs).  Use of
+				   a raw spinlock because we don't want to go
+				   to sleep when we can't get it */
+
+	phys_addr_t	paddr;	/* physical address */
+	void __iomem	*virt;	/* mapped address after ioremap() */
+
+	int		node;		/* numa node */
+
+	struct irq_domain	*irq_domain;	/* associated irq domain */
+
+	/* IPI */
+	unsigned int	ipi_irq;	/* IRQ number for IPI */
+
+	/* HWI */
+	size_t		hwi_count;	/* number of HWI IRQs */
+
+	/* PTI */
+	unsigned long	clk_period;	/* clock period (cycles) */
+	unsigned long	clk_rate;	/* clock frequency */
+	unsigned int	timer_irq;	/* IRQ number for PTI */
+};
+
+extern struct vci_xicu *vci_xicu[MAX_NUMNODES];
+
+/*
+ * from the logical cpu id of a processor, get its hardware cpu id (in
+ * cpu_logical_map[] lookup table) and deduce its cluster-local id
+ */
+static inline void compute_hwcpuid(unsigned int logical_cpu,
+		unsigned long *hw_cpu, unsigned long *node_hw_cpu)
+{
+	*hw_cpu = cpu_logical_map(logical_cpu);
+	BUG_ON(*hw_cpu == INVALID_HWCPUID);
+	*node_hw_cpu = HWCPUID_TO_LOCAL_ID(*hw_cpu);
+	BUG_ON(*node_hw_cpu >= MAX_CPU_PER_CLUSTER);
+}
 
 #endif /* _TSAR_VCI_XICU_H */
