@@ -1,3 +1,7 @@
+##
+# Default configuration tokens
+##
+
 config TSAR
 	def_bool y
 	select ARCH_WANT_FRAME_POINTERS
@@ -26,12 +30,10 @@ config TSAR
 	select OF_EARLY_FLATTREE
 
 config LOCKDEP_SUPPORT
-	bool
-	default y
+	def_bool y
 
 config STACKTRACE_SUPPORT
-	bool
-	default y
+	def_bool y
 
 config MMU
 	def_bool y
@@ -42,8 +44,8 @@ config ARCH_PHYS_ADDR_T_64BIT
 config ARCH_DMA_ADDR_T_64BIT
 	def_bool y
 
-# XXX: no DMA for now
 config NO_DMA
+	# XXX: no DMA for now
 	bool
 	default y
 
@@ -59,6 +61,10 @@ config GENERIC_CALIBRATE_DELAY
 source "init/Kconfig"
 
 source "kernel/Kconfig.freezer"
+
+##
+# System choice
+##
 
 menu "Processor/system type and features"
 
@@ -109,6 +115,10 @@ config ARCH_TSARV5_LETI_FPGA
 
 endchoice
 
+##
+# Multi-processor and NUMA related tokens
+##
+
 config SMP
 	bool "Symmetric multi-processing support"
 
@@ -140,12 +150,16 @@ config SMP_IPI_BOOT
 	depends on SMP
 
 config TSAR_L1_CACHE_SHIFT
-	int "Size of L1 cache line (power of 2)"
+	int "Size of L1 cache line (as a power of 2)"
 	default 6
 
 config PAGE_OFFSET
 	hex "User/kernel split address"
 	default 0xC0000000
+
+##
+# System type: soclib (simulation), fpga, LETI
+##
 
 config TSAR_SOCLIB
 	bool
@@ -160,11 +174,25 @@ config TSAR_LETI
 	select SMP_IPI_BOOT
 	select TSAR_MULTI_CLUSTER
 
+##
+# Devices
+##
+
 config SOCLIB_VCI_ICU
 	bool
+	help
+		ICU is a memory mapped device which implements a simple
+		vectorized interrupt controller.
+		<http://www.soclib.fr/trac/dev/wiki/Component/VciIcu>
 
 config SOCLIB_VCI_XICU
 	bool
+	help
+		XICU is a memory mapped device, implementing:
+		- a vectorized interrupt controller,
+		- a timer controller,
+		- an IPI controller.
+		<http://www.soclib.fr/trac/dev/wiki/Component/VciXicu>
 
 config SOCLIB_VCI_XICU_LETI
 	bool
@@ -172,13 +200,26 @@ config SOCLIB_VCI_XICU_LETI
 
 config SOCLIB_VCI_MTTY
 	bool
+	help
+		Multi-TTY device.
+		<http://www.soclib.fr/trac/dev/wiki/Component/VciMultiTty>
 
 config SOCLIB_VCI_TIMER
 	bool
 	select CLKSRC_MMIO
+	help
+		Multi-timer device.
+		<http://www.soclib.fr/trac/dev/wiki/Component/VciMultiTimer>
 
 config SOCLIB_VCI_IOC
 	bool
+	help
+		Block device.
+		<http://www.soclib.fr/trac/dev/wiki/Component/VciBlockDevice>
+
+##
+# TSAR versions: v4 (obsolete), v5
+##
 
 config TSAR_V4
 	bool
