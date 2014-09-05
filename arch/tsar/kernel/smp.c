@@ -364,7 +364,7 @@ volatile unsigned long secondary_cpu_boot __cacheline_aligned = INVALID_HWCPUID;
 volatile unsigned long secondary_cpu_gp __cacheline_aligned;
 
 #ifdef CONFIG_SMP_IPI_BOOT
-extern void kernel_entry(void);
+extern void secondary_kernel_entry(void);
 #endif
 
 int __cpu_up(unsigned int cpu, struct task_struct *idle)
