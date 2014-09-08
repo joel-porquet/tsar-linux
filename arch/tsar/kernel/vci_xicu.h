@@ -73,9 +73,14 @@ enum hwirq_map {
  * which is determined by the combination of functions and indexes (32 at most)
  * FUNC (5 bits) | INDEX (5 bits) | 00
  */
+#define __VCI_XICU_REG_OFFSET(func, index) \
+	 (((((func) & 0x1f) << 5) | ((index) & 0x1f)) & 0x3ff)
+
 #define VCI_XICU_REG(xicu, func, index) \
-	((unsigned long *)((xicu)->virt) + \
-	 (((((func) & 0x1f) << 5) | ((index) & 0x1f)) & 0x3ff))
+	((unsigned long *)((xicu)->virt) + __VCI_XICU_REG_OFFSET(func, index))
+
+#define VCI_XICU_REG_PADDR(xicu, func, index) \
+	((phys_addr_t)((xicu)->paddr) + __VCI_XICU_REG_OFFSET(func, index))
 
 /* VCI_XICU functions */
 #define XICU_WTI_REG		0x0 	/* indexed by WTI_INDEX	(R/W) */
@@ -168,5 +173,7 @@ static inline void compute_hwcpuid(unsigned int logical_cpu,
 	*node_hw_cpu = HWCPUID_TO_LOCAL_ID(*hw_cpu);
 	BUG_ON(*node_hw_cpu >= MAX_CPU_PER_CLUSTER);
 }
+
+extern void vci_iopic_handle_irq(irq_hw_number_t wti, struct pt_regs *regs);
 
 #endif /* _TSAR_VCI_XICU_H */

@@ -352,8 +352,14 @@ HANDLE_IRQ(vci_xicu_handle_irq)
 				virq = irq_find_mapping(xicu->irq_domain, IPI_IRQ);
 				handle_IRQ(virq, regs);
 			} else {
+# ifdef CONFIG_SOCLIB_VCI_XICU_IOPIC
+				/* give the wti to the iopic */
+				wti -= MAX_CPU_PER_CLUSTER;
+				vci_iopic_handle_irq(wti, regs);
+# else
 				BUG_ON(1);
 				break;
+# endif
 			}
 			continue;
 		}
@@ -418,7 +424,6 @@ void __init vci_xicu_state_init(struct vci_xicu *xicu)
 		}
 #endif
 	}
-
 }
 
 #ifdef CONFIG_SMP

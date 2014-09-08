@@ -170,7 +170,7 @@ config TSAR_FPGA
 
 config TSAR_LETI
 	bool
-	select SOCLIB_VCI_XICU_LETI
+	select SOCLIB_VCI_XICU_IOPIC
 	select SMP_IPI_BOOT
 	select TSAR_MULTI_CLUSTER
 
@@ -216,6 +216,17 @@ config SOCLIB_VCI_XICU_CPUIRQS_SHIFT
 		connected to a same processor (range 0-3 to local processor 0,
 		range 4-7 to local processor 1, etc.). In most other systems,
 		there is only one output line per processor.
+
+config SOCLIB_VCI_XICU_IOPIC
+	bool
+	depends on SOCLIB_VCI_XICU && TSAR_LETI
+	help
+		In the LETI system, devices are located in a special cluster.
+		The IOPIC is the main interrupt controller physically connected
+		to those devices, which in turn can route IRQs to local XICUs
+		all across the system, using WTIs (ie software-triggered
+		interrupts).
+		<http://www.soclib.fr/trac/dev/wiki/Component/VciIopic>
 
 config SOCLIB_VCI_MTTY
 	bool
