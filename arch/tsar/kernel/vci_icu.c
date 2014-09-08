@@ -33,15 +33,22 @@
 #define VCI_ICU_MASK_CLEAR	0x0c // WO: unset IRQ mask
 #define VCI_ICU_IT_VECTOR	0x10 // RO: highest active IRQ
 
-static void __iomem *vci_icu_virt_base;
-static struct irq_domain *vci_icu_irq_domain;
+#define VCI_ICU_REG(func) \
+	((unsigned long *)(icu.virt + (func & 0x1C))
+
+struct vci_icu {
+	void __iomem		*virt;
+	struct irq_domain	*irq_domain;
+};
+
+struct vci_icu icu;
 
 static inline void vci_icu_mask(struct irq_data *d)
 {
 	/* mask the requested irq (hwirq is the hardware irq number, local to
 	 * the vci_icu) */
 	irq_hw_number_t hwirq = irqd_to_hwirq(d);
-	__raw_writel(BIT(hwirq), vci_icu_virt_base + VCI_ICU_MASK_CLEAR);
+	writel(BIT(hwirq), VCI_ICU_REG(VCI_ICU_MASK_CLEAR));
 }
 
 static inline void vci_icu_unmask(struct irq_data *d)
@@ -49,7 +56,7 @@ static inline void vci_icu_unmask(struct irq_data *d)
 	/* unmask the requested irq (hwirq is the hardware irq number, local to
 	 * the vci_icu) */
 	irq_hw_number_t hwirq = irqd_to_hwirq(d);
-	__raw_writel(BIT(hwirq), vci_icu_virt_base + VCI_ICU_MASK_SET);
+	writel(BIT(hwirq), VCI_ICU_REG(VCI_ICU_MASK_SET));
 }
 
 static struct irq_chip vci_icu_controller = {
@@ -66,11 +73,11 @@ HANDLE_IRQ(vci_icu_handle_irq)
 	unsigned int virq;
 
 	/* get the index of the highest-priority active hwirq */
-	hwirq = __raw_readl(vci_icu_virt_base + VCI_ICU_IT_VECTOR);
+	hwirq = readl(VCI_ICU_REG(VCI_ICU_IT_VECTOR));
 
 	if (hwirq >= 0 && hwirq < VCI_ICU_IRQ_COUNT) {
 		/* find the corresponding virq */
-		virq = irq_find_mapping(vci_icu_irq_domain, hwirq);
+		virq = irq_find_mapping(icu.irq_domain, hwirq);
 		/* and call the main IRQ handler */
 		handle_IRQ(virq, regs);
 	} else {
@@ -100,17 +107,17 @@ int __init vci_icu_init(struct device_node *of_node, struct device_node *parent)
 	BUG_ON(of_address_to_resource(of_node, 0, &res));
 	BUG_ON(!request_mem_region(res.start, resource_size(&res), res.name));
 
-	vci_icu_virt_base = ioremap_nocache(res.start, resource_size(&res));
+	icu.virt = ioremap_nocache(res.start, resource_size(&res));
 
-	BUG_ON(!vci_icu_virt_base);
+	BUG_ON(!icu.virt);
 
 	/* add an irq domain for the vci_icu */
-	vci_icu_irq_domain = irq_domain_add_linear(of_node, VCI_ICU_IRQ_COUNT,
+	icu.irq_domain = irq_domain_add_linear(of_node, VCI_ICU_IRQ_COUNT,
 			&vci_icu_domain_ops, NULL);
-	BUG_ON(!vci_icu_irq_domain);
+	BUG_ON(!icu.irq_domain);
 
 	/* disable all vci_icu IRQs */
-	__raw_writel(~0, vci_icu_virt_base + VCI_ICU_MASK_CLEAR);
+	writel(~0, VCI_ICU_REG(VCI_ICU_MASK_CLEAR));
 
 	/* provide an IRQ handler for the vcu_icu */
 	set_handle_irq(vci_icu_handle_irq);
