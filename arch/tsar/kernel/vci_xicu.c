@@ -31,94 +31,74 @@
 /* there is one xicu per cluster, at most */
 struct vci_xicu *vci_xicu[MAX_NUMNODES];
 
+#ifdef CONFIG_SOCLIB_VCI_XICU_HWI
 /*
- * Irqchip driver
+ * Irqchip driver for External Hardware Interrupts (HWI)
+ *
+ * Those interrupts can be routed to any processor connected to the XICU.
  */
 
-/* common function for handling mask and unmask requests */
-static inline void __vci_xicu_generic_mask(struct irq_data *d, bool mask)
+static inline void __vci_xicu_hwi_generic_mask(struct irq_data *d, bool mask)
 {
 	struct vci_xicu *xicu;
 	irq_hw_number_t hwirq;
-	unsigned long hw_cpu, node_hw_cpu, outirq;
+	unsigned long node_hw_cpu, outirq;
 	unsigned char cmd;
-	unsigned long val;
+
+	/* unfortunately, the xicu does allow to (un)mask an HWI through its
+	 * index directly. We have to (un)mask the HWI through the index of the
+	 * local cpu the HWI is routed to */
 
 	xicu = irq_data_get_irq_chip_data(d);
-	hwirq = irqd_to_hwirq(d);
-	compute_hwcpuid(smp_processor_id(), &hw_cpu, &node_hw_cpu);
+	hwirq = irqd_to_hwirq(d) - HWIRQ_START;
+
+	raw_spin_lock(&xicu->lock);
+	node_hw_cpu = xicu->hwi_to_hw_node_cpu[hwirq];
+
+	BUG_ON(hwirq >= xicu->hwi_count);
+	BUG_ON(node_hw_cpu > MAX_CPU_PER_CLUSTER);
+
 	outirq = VCI_XICU_CPUID_MAP(node_hw_cpu);
 
-	switch (hwirq)
-	{
-#ifdef CONFIG_SMP
-	case IPI_IRQ:
-		pr_debug("CPU%ld: (un)mask IPI\n", hw_cpu);
-		cmd = mask ? XICU_MSK_WTI_DISABLE : XICU_MSK_WTI_ENABLE;
-		val = BIT(node_hw_cpu);
-		writel(val, VCI_XICU_REG(xicu, cmd, outirq));
-		break;
-#endif
-	case PTI_IRQ:
-		pr_debug("CPU%ld: (un)mask PTI\n", hw_cpu);
-		cmd = mask ? XICU_MSK_PTI_DISABLE : XICU_MSK_PTI_ENABLE;
-		val = BIT(node_hw_cpu);
-		writel(val, VCI_XICU_REG(xicu, cmd, outirq));
-		break;
-	default:
-		hwirq -= HWIRQ_START;
-		if (hwirq < xicu->hwi_count) {
-			pr_debug("CPU%ld: (un)mask HWI %ld\n", hw_cpu, hwirq);
-			cmd = mask ? XICU_MSK_HWI_DISABLE : XICU_MSK_HWI_ENABLE;
-			val = BIT(hwirq);
-			raw_spin_lock(&xicu->lock);
-			writel(val, VCI_XICU_REG(xicu, cmd, outirq));
-			raw_spin_unlock(&xicu->lock);
-		} else {
-			pr_warning("CPU%ld: cannot (un)mask HWI %ld\n",
-					hw_cpu, hwirq);
-		}
-		break;
-	}
+	pr_debug("Node%d: (un)mask HWI %ld\n", xicu->node, hwirq);
+
+	cmd = mask ? XICU_MSK_HWI_DISABLE : XICU_MSK_HWI_ENABLE;
+	writel(BIT(hwirq), VCI_XICU_REG(xicu, cmd, outirq));
+	raw_spin_unlock(&xicu->lock);
 }
 
-static inline void vci_xicu_mask(struct irq_data *d)
+static void vci_xicu_hwi_mask(struct irq_data *d)
 {
-	__vci_xicu_generic_mask(d, true);
+	__vci_xicu_hwi_generic_mask(d, true);
 }
 
-static inline void vci_xicu_unmask(struct irq_data *d)
+static void vci_xicu_hwi_unmask(struct irq_data *d)
 {
-	__vci_xicu_generic_mask(d, false);
+	__vci_xicu_hwi_generic_mask(d, false);
 }
 
 #ifdef CONFIG_SMP
-/* try migrate an interrupt to any processor part of the required cpumask */
-static int vci_xicu_set_affinity(struct irq_data *d,
+static int vci_xicu_hwi_set_affinity(struct irq_data *d,
 		const cpumask_t *cpumask_req, bool force)
 {
 	struct vci_xicu *xicu;
 	irq_hw_number_t hwirq;
-	unsigned long cpu, chosen_cpu;
+	unsigned long chosen_cpu, hw_cpu, node_hw_cpu;
 	cpumask_t cpumask_node_online;
 
 	xicu = irq_data_get_irq_chip_data(d);
-	hwirq = irqd_to_hwirq(d);
+	hwirq = irqd_to_hwirq(d) - HWIRQ_START;
 
-	/* only HWIs can migrate, not percpu IRQs */
-	hwirq -= MAX_PCPU_IRQS;
-	if (WARN_ON(hwirq >= xicu->hwi_count))
-		return -EINVAL;
-
-	/* get the online cpumask of the current node */
+	/* get the online cpumask of the current cluster */
 	cpumask_and(&cpumask_node_online, cpu_online_mask,
 			cpumask_of_node(xicu->node));
 
-	/* intersect the required mask with the node cpumask */
+	/* intersect the required mask with the cluster cpumask */
 	chosen_cpu = cpumask_any_and(cpumask_req, &cpumask_node_online);
 
 	if (chosen_cpu >= nr_cpu_ids) {
-		/* if there is no match, try any cpu in the node */
+		/* try any cpu in the cluster, not even part of the required
+		 * mask */
 		chosen_cpu = cpumask_any(&cpumask_node_online);
 		if (chosen_cpu >= nr_cpu_ids) {
 			/* we have a problem! */
@@ -126,29 +106,22 @@ static int vci_xicu_set_affinity(struct irq_data *d,
 		}
 	}
 
+	pr_debug("Node%d: migrate HWI %ld to CPU%ld\n",
+			xicu->node, hwirq,
+			cpu_logical_map(chosen_cpu));
+
+	/* disable the old association */
+	vci_xicu_hwi_mask(d);
+
+	/* update the association between the HWI and the newly cluster-local
+	 * chosen cpu */
 	raw_spin_lock(&xicu->lock);
-
-	/* loop on all online cpus of the node */
-	for_each_cpu(cpu, &cpumask_node_online) {
-		unsigned char cmd;
-		unsigned long hw_cpu, node_hw_cpu, outirq;
-
-		compute_hwcpuid(cpu, &hw_cpu, &node_hw_cpu);
-		outirq = VCI_XICU_CPUID_MAP(node_hw_cpu);
-
-		/* unmask the IRQ only for the chosen cpu */
-		if (cpu == chosen_cpu)
-			cmd = XICU_MSK_HWI_ENABLE;
-		else
-			cmd = XICU_MSK_HWI_DISABLE;
-
-		writel(BIT(hwirq), VCI_XICU_REG(xicu, cmd, outirq));
-	}
-
+	compute_hwcpuid(chosen_cpu, &hw_cpu, &node_hw_cpu);
+	xicu->hwi_to_hw_node_cpu[hwirq] = node_hw_cpu;
 	raw_spin_unlock(&xicu->lock);
 
-	pr_debug("Migrated HWI %ld to CPU%ld\n", hwirq,
-			cpu_logical_map(chosen_cpu));
+	/* enable the new association */
+	vci_xicu_hwi_unmask(d);
 
 	/* update the affinity of the irq */
 	cpumask_copy(d->affinity, &cpumask_node_online);
@@ -157,14 +130,70 @@ static int vci_xicu_set_affinity(struct irq_data *d,
 }
 #endif
 
-static struct irq_chip vci_xicu_controller = {
-	.name		= "vci_xicu",
-	.irq_mask	= vci_xicu_mask,
-	.irq_mask_ack	= vci_xicu_mask,
-	.irq_unmask	= vci_xicu_unmask,
+static struct irq_chip vci_xicu_hwi_ctrl = {
+	.name		= "vci_xicu_hwi",
+	.irq_mask	= vci_xicu_hwi_mask,
+	.irq_mask_ack	= vci_xicu_hwi_mask,
+	.irq_unmask	= vci_xicu_hwi_unmask,
 #ifdef CONFIG_SMP
-	.irq_set_affinity = vci_xicu_set_affinity,
+	.irq_set_affinity = vci_xicu_hwi_set_affinity,
 #endif
+};
+#endif /* CONFIG_SOCLIB_VCI_XICU_HWI */
+
+/*
+ * Irqchip driver for Writable-Triggered Interrupts (WTI/IPI) and Programmable
+ * Timer Interrupts (PTI)
+ *
+ * Those interrupts are per processor: one WTI and one PTI for each processor.
+ */
+
+static inline void __vci_xicu_pcpu_generic_mask(struct irq_data *d, bool mask)
+{
+	struct vci_xicu *xicu;
+	irq_hw_number_t hwirq;
+	unsigned long hw_cpu, node_hw_cpu, outirq;
+	unsigned char cmd;
+
+	xicu = irq_data_get_irq_chip_data(d);
+	hwirq = irqd_to_hwirq(d);
+	compute_hwcpuid(smp_processor_id(), &hw_cpu, &node_hw_cpu);
+	outirq = VCI_XICU_CPUID_MAP(node_hw_cpu);
+
+	BUG_ON(hwirq >= MAX_PCPU_IRQS);
+
+	switch (hwirq)
+	{
+#ifdef CONFIG_SMP
+	case IPI_IRQ:
+		pr_debug("CPU%ld: (un)mask IPI\n", hw_cpu);
+		cmd = mask ? XICU_MSK_WTI_DISABLE : XICU_MSK_WTI_ENABLE;
+		break;
+#endif
+	case PTI_IRQ:
+		pr_debug("CPU%ld: (un)mask PTI\n", hw_cpu);
+		cmd = mask ? XICU_MSK_PTI_DISABLE : XICU_MSK_PTI_ENABLE;
+		break;
+	}
+
+	writel(BIT(node_hw_cpu), VCI_XICU_REG(xicu, cmd, outirq));
+}
+
+static void vci_xicu_pcpu_mask(struct irq_data *d)
+{
+	__vci_xicu_pcpu_generic_mask(d, true);
+}
+
+static void vci_xicu_pcpu_unmask(struct irq_data *d)
+{
+	__vci_xicu_pcpu_generic_mask(d, false);
+}
+
+static struct irq_chip vci_xicu_pcpu_ctrl = {
+	.name		= "vci_xicu_pcpu",
+	.irq_mask	= vci_xicu_pcpu_mask,
+	.irq_mask_ack	= vci_xicu_pcpu_mask,
+	.irq_unmask	= vci_xicu_pcpu_unmask,
 };
 
 /*
@@ -186,7 +215,7 @@ static int vci_xicu_map(struct irq_domain *d, unsigned int virq,
 			 * fake one, but it is the only way to declare IPI IRQs
 			 * as percpu IRQ and benefit from the kernel API */
 			irq_set_percpu_devid(virq);
-			irq_set_chip_and_handler(virq, &vci_xicu_controller,
+			irq_set_chip_and_handler(virq, &vci_xicu_pcpu_ctrl,
 					handle_percpu_irq);
 			break;
 #endif
@@ -195,18 +224,23 @@ static int vci_xicu_map(struct irq_domain *d, unsigned int virq,
 			 * by the private timers, to point to a private
 			 * clocksource instance */
 			irq_set_percpu_devid(virq);
-			irq_set_chip_and_handler(virq, &vci_xicu_controller,
+			irq_set_chip_and_handler(virq, &vci_xicu_pcpu_ctrl,
 					handle_percpu_devid_irq);
 			break;
 		default:
+#ifdef CONFIG_SOCLIB_VCI_XICU_HWI
 			hwirq -= HWIRQ_START;
-			if (hwirq < xicu->hwi_count)
+			if (hwirq < xicu->hwi_count) {
 				/* regular HWI */
 				irq_set_chip_and_handler(virq,
-						&vci_xicu_controller,
+						&vci_xicu_hwi_ctrl,
 						handle_level_irq);
-			else
-				pr_warning("Cannot map HWI %ld\n", hwirq);
+			} else
+#endif
+			{
+				pr_err("Cannot map HWI %ld\n", hwirq);
+				return -EINVAL;
+			}
 			break;
 	}
 
@@ -220,17 +254,15 @@ static int vci_xicu_xlate(struct irq_domain *d, struct device_node *ctrlr,
 	int ret;
 	struct vci_xicu *xicu = d->host_data;
 
-	/* get the IRQ number from the device tree */
-	ret = irq_domain_xlate_onecell(d, ctrlr,
-			intspec, intsize,
+	/* get the HWI number from the device tree */
+	ret = irq_domain_xlate_onecell(d, ctrlr, intspec, intsize,
 			out_hwirq, out_type);
 	if (!ret) {
-		/* check the IRQ number is legal */
+		/* check the HWI number is legal */
 		if (WARN_ON(*out_hwirq >= xicu->hwi_count))
 			return -EINVAL;
 
-		/* external IRQs numbering start after the "virtual" percpu
-		 * IRQs (e.g. IPI and PTI) */
+		/* HWI numbering start after percpu IRQs (e.g. IPI and PTI) */
 		*out_hwirq += HWIRQ_START;
 	}
 	return ret;
@@ -250,7 +282,7 @@ SMP_IPI_CALL(vci_xicu_send_ipi)
 	 * the IPI */
 	wmb();
 
-	/* send an IPI to all targeted cpus, via their node-local xicu */
+	/* send an IPI to all targeted cpus, via their cluster-local XICU */
 	for_each_cpu(cpu, mask) {
 		struct vci_xicu *xicu;
 		unsigned long hw_cpu, node_hw_cpu;
@@ -267,9 +299,8 @@ SMP_IPI_CALL(vci_xicu_send_ipi)
 
 /*
  * ISR for the VCI_XICU
- * Read the priority encoder value from the node-local xicu: it can be either
- * an IRQ from the private PTI, an external HWIRQ (routed on the current cpu)
- * or an IPI.
+ * Read the priority encoder value from the cluster-local XICU: it can be
+ * either a PTI, a HWIRQ (routed to the current cpu) or an IPI.
  */
 static asmlinkage __irq_entry
 HANDLE_IRQ(vci_xicu_handle_irq)
@@ -288,7 +319,7 @@ HANDLE_IRQ(vci_xicu_handle_irq)
 		unsigned int virq;
 
 		/* get the priority encoder for the current cpu */
-		prio = __raw_readl(VCI_XICU_REG(xicu, XICU_PRIO, outirq));
+		prio = readl(VCI_XICU_REG(xicu, XICU_PRIO, outirq));
 
 		/* timer irq */
 		if (XICU_PRIO_HAS_PTI(prio)) {
@@ -302,7 +333,7 @@ HANDLE_IRQ(vci_xicu_handle_irq)
 #ifdef CONFIG_SOCLIB_VCI_XICU_HWI
 		/* hardware irq */
 		if (XICU_PRIO_HAS_HWI(prio)) {
-			unsigned int hwirq;
+			irq_hw_number_t hwirq;
 			hwirq = XICU_PRIO_HWI(prio);
 			virq = irq_find_mapping(xicu->irq_domain,
 					hwirq + HWIRQ_START);
@@ -312,12 +343,18 @@ HANDLE_IRQ(vci_xicu_handle_irq)
 #endif
 
 #ifdef CONFIG_SMP
-		/* IPI irq */
+		/* WTI/IPI irq */
 		if (XICU_PRIO_HAS_WTI(prio)) {
-			/* only one possible IPI */
-			BUG_ON(XICU_PRIO_WTI(prio) != node_hw_cpu);
-			virq = irq_find_mapping(xicu->irq_domain, IPI_IRQ);
-			handle_IRQ(virq, regs);
+			irq_hw_number_t wti = XICU_PRIO_WTI(prio);
+			if (wti < MAX_CPU_PER_CLUSTER) {
+				/* only one possible IPI */
+				BUG_ON(wti != node_hw_cpu);
+				virq = irq_find_mapping(xicu->irq_domain, IPI_IRQ);
+				handle_IRQ(virq, regs);
+			} else {
+				BUG_ON(1);
+				break;
+			}
 			continue;
 		}
 #endif
@@ -331,10 +368,10 @@ static irqreturn_t vci_xicu_ipi_interrupt(int irq, void *dev_id)
 	struct vci_xicu *xicu;
 	unsigned long hw_cpu, node_hw_cpu;
 
-	/* acknowledge the IPI to our node local xicu */
+	/* acknowledge the IPI to our cluster-local xicu */
 	xicu = vci_xicu[numa_node_id()];
 	compute_hwcpuid(smp_processor_id(), &hw_cpu, &node_hw_cpu);
-	__raw_readl(VCI_XICU_REG(xicu, XICU_WTI_REG, node_hw_cpu));
+	readl(VCI_XICU_REG(xicu, XICU_WTI_REG, node_hw_cpu));
 
 	pr_debug("CPU%ld: received an IPI\n", hw_cpu);
 
@@ -344,19 +381,20 @@ static irqreturn_t vci_xicu_ipi_interrupt(int irq, void *dev_id)
 }
 #endif
 
-void __init vci_xicu_mask_init(struct vci_xicu *xicu)
+void __init vci_xicu_state_init(struct vci_xicu *xicu)
 {
-	int cpu;
+	int cpu, hwi_ok = false;
 	cpumask_t cpumask_node_possible;
 
 	/*
-	 * for a certain XICU, mask all IRQs for the possible cpus of the same
-	 * node
+	 * for a certain XICU and thus a certain cluster, mask all IRQs for the
+	 * possible cpus of the same cluster
 	 */
 	cpumask_and(&cpumask_node_possible, cpu_possible_mask,
 			cpumask_of_node(xicu->node));
 	for_each_cpu(cpu, &cpumask_node_possible)
 	{
+		int i;
 		unsigned long hw_cpu, node_hw_cpu, outirq;
 
 		compute_hwcpuid(cpu, &hw_cpu, &node_hw_cpu);
@@ -370,7 +408,17 @@ void __init vci_xicu_mask_init(struct vci_xicu *xicu)
 		writel(BIT(node_hw_cpu), VCI_XICU_REG(xicu,
 					XICU_MSK_WTI_ENABLE, outirq));
 #endif
+#ifdef CONFIG_SOCLIB_VCI_XICU_HWI
+		if (!hwi_ok) {
+			/* route the HWI to the first cpu of the cluster */
+			for (i = 0; i < MAX_HWI_COUNT; i++) {
+				xicu->hwi_to_hw_node_cpu[i] = node_hw_cpu;
+			}
+			hwi_ok = true;
+		}
+#endif
 	}
+
 }
 
 #ifdef CONFIG_SMP
@@ -453,6 +501,7 @@ int __init vci_xicu_init(struct device_node *of_node, struct device_node *parent
 #else
 	xicu->hwi_count = 0;
 #endif
+	BUG_ON(xicu->hwi_count >= MAX_HWI_COUNT);
 
 	/* configuration checking (IRQ_COUNT, WTI_COUNT and PTI_COUNT must
 	 * match the number of cpus per cluster) */
@@ -468,8 +517,7 @@ int __init vci_xicu_init(struct device_node *of_node, struct device_node *parent
 			&vci_xicu_domain_ops, xicu);
 	BUG_ON(!xicu->irq_domain);
 
-	/* disable all IRQs of the XICU */
-	vci_xicu_mask_init(xicu);
+	vci_xicu_state_init(xicu);
 
 #ifdef CONFIG_SMP
 	/* create an irq association for IPI percpu irqs and provide an IRQ

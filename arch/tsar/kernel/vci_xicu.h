@@ -46,11 +46,16 @@
 
 #ifdef CONFIG_TSAR_MULTI_CLUSTER
 /* 4 cpus per cluster when doing multi-cluster*/
-#define MAX_CPU_PER_CLUSTER 4
+# define MAX_CPU_PER_CLUSTER 4
 #else
 /* otherwise no limit (actually 32) */
-#define MAX_CPU_PER_CLUSTER NR_CPUS
+# define MAX_CPU_PER_CLUSTER NR_CPUS
 #endif
+
+/* 32 possible sources of IRQ of each kind */
+#define MAX_WTI_COUNT 32
+#define MAX_PTI_COUNT 32
+#define MAX_HWI_COUNT 32
 
 enum hwirq_map {
 	/* percpu IRQs */
@@ -138,6 +143,10 @@ struct vci_xicu {
 
 	/* HWI */
 	size_t		hwi_count;	/* number of HWI IRQs */
+#ifdef CONFIG_SOCLIB_VCI_XICU_HWI
+	/* association between a hwi and a cluster-local cpu */
+	unsigned char	hwi_to_hw_node_cpu[MAX_HWI_COUNT];
+#endif
 
 	/* PTI */
 	unsigned long	clk_period;	/* clock period (cycles) */
