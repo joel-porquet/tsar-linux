@@ -42,7 +42,7 @@ void __init memory_setup_nodes(void)
 		BUG_ON((x >= tsar_xwidth) || (y >= tsar_ywidth));
 		BUG_ON(nid >= MAX_NUMNODES);
 		/* the node shouldn't already be online */
-		WARN_ON(node_online(nid));
+		WARN_ON(nid && node_online(nid));
 
 		/* associate the memory block with its corresponding node */
 		memblock_set_region_node(reg, nid);
