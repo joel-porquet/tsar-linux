@@ -40,7 +40,8 @@ static inline int pfn_to_nid(unsigned long pfn)
 /* fast version */
 static inline int pfn_to_nid(unsigned long pfn)
 {
-	unsigned int nid = paddr_to_nid(pfn << PAGE_SHIFT);
+	phys_addr_t paddr = (phys_addr_t)pfn << PAGE_SHIFT;
+	unsigned int nid = paddr_to_nid(paddr);
 	if (nid < MAX_NUMNODES && NODE_DATA(nid)
 			&& pfn >= node_start_pfn(nid)
 			&& pfn < node_end_pfn(nid))
