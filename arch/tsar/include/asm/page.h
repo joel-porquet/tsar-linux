@@ -6,7 +6,10 @@
 /* definition of a page (4KiB) */
 #define PAGE_SHIFT	12
 #define PAGE_SIZE	(_AC(1, UL) << PAGE_SHIFT)
-#define PAGE_MASK	(~(PAGE_SIZE - 1))
+/* Use powerpc trick: (1 << PAGE_SHIFT) is a int, not an unsigned long (as
+ * PAGE_SIZE), which means it will get properly extended when being used for
+ * larger types (i.e. with 1s in the high bits) */
+#define PAGE_MASK	(~((1 << PAGE_SHIFT) - 1))
 
 #ifndef __ASSEMBLY__
 
