@@ -217,9 +217,6 @@ asmlinkage void __init secondary_start_kernel(void)
 	 * cpu who is still waiting for us */
 	set_cpu_online(cpu, true);
 
-	/* associate the cpu with a node */
-	//set_numa_node(cpu_node_map[cpu]);
-
 	/* enable IRQs and start the idle thread */
 	local_irq_enable();
 	cpu_startup_entry(CPUHP_ONLINE);
