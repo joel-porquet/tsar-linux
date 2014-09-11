@@ -218,7 +218,7 @@ asmlinkage void __init secondary_start_kernel(void)
 	set_cpu_online(cpu, true);
 
 	/* associate the cpu with a node */
-	set_numa_node(cpu_node_map[cpu]);
+	//set_numa_node(cpu_node_map[cpu]);
 
 	/* enable IRQs and start the idle thread */
 	local_irq_enable();
@@ -332,7 +332,15 @@ next:
 
 void __init smp_prepare_boot_cpu(void)
 {
-	set_numa_node(cpu_node_map[smp_processor_id()]);
+	int cpu;
+
+	/* The association between cpus and nodes could only be done for the
+	 * boot cpu here, and later by secondary cpus when they boot. But we
+	 * need cpu_to_node() to be operational when using SMP_IPI_BOOT, so
+	 * let's do the whole association thing here and be done with it. */
+	for_each_possible_cpu(cpu) {
+		set_cpu_numa_node(cpu, cpu_node_map[cpu]);
+	}
 }
 
 /*
