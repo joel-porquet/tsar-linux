@@ -14,21 +14,29 @@
 #include <linux/nodemask.h>
 #include <linux/percpu.h>
 
-#ifdef CONFIG_NUMA
-
 /*
- * Register NUMA nodes in sysfs
+ * Register NUMA nodes and cpus in sysfs
  *
- * Note: we don't have to register cpus, they're already getting registered by
- * GENERIC_CPU_DEVICES during init.
+ * Ideally we could rely on CONFIG_GENERIC_CPU_DEVICES to register cpus.
+ * Unfortunately this option registers cpus before topology_init() is called,
+ * and crashes the system. Nodes have to be register before cpus.
  */
+
+static DEFINE_PER_CPU(struct cpu, cpu_devices);
 
 static int __init topology_init(void)
 {
 	int i, err = 0;
 
+#ifdef CONFIG_NUMA
 	for_each_online_node(i) {
 		if ((err = register_one_node(i)))
+			goto out;
+	}
+#endif
+
+	for_each_present_cpu(i) {
+		if ((err = register_cpu(&per_cpu(cpu_devices, i), i)))
 			goto out;
 	}
 
@@ -37,5 +45,3 @@ out:
 }
 
 subsys_initcall(topology_init);
-
-#endif
