@@ -7,10 +7,10 @@
  * Macros to access coprocessor 2
  */
 
-#define __READ_C2_REG(_res, _src)        \
-	__asm__ __volatile__(            \
-			"mfc2 %0, "#_src \
-			: "=r" (_res)    \
+#define __READ_C2_REG(_res, _src)         \
+	__asm__ __volatile__(             \
+			"mfc2 %0, " #_src \
+			: "=r" (_res)     \
 			)
 
 #define __WRITE_C2_REG(_val, _src)                      \
