@@ -15,7 +15,9 @@
 
 #define __WRITE_C2_REG(_val, _src)                      \
 	__asm__ __volatile__(                           \
-			"mtc2 %z0, "#_src               \
+			"mtc2 %z0, " #_src " \n"        \
+			"nop                 \n"        \
+			"nop                 \n"        \
 			:: "Jr" ((unsigned long)(_val)) \
 			)
 

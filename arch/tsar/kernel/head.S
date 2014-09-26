@@ -150,6 +150,8 @@ mmu_mode_init = (MMU_MODE_INST_TLB | MMU_MODE_DATA_TLB | MMU_MODE_INST_CACHE | M
 
 	li	t0, mmu_mode_init	/* init mmu mode */
 	mtc2	t0, MMU_MODE		/* enable MMU */
+	nop				/* 2 cycles before MMU is fully activated */
+	nop
 
 	/* jump into VA space */
 	jr	t1
