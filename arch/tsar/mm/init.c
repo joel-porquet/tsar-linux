@@ -190,7 +190,7 @@ static void __init map_pmd_table(pgd_t *pgd, unsigned long vaddr, phys_addr_t pa
 	pmd_t *pmd = pmd_offset((pud_t*)pgd, vaddr);
 
 	/* table mapping (PTD) */
-	set_pmd(pmd, __pmd(paddr >> PMD_SHIFT | __PMD_TABLE));
+	set_pmd(pmd, __pmd(paddr >> PAGE_SHIFT | __PMD_TABLE));
 }
 
 static void __init pgd_range_init(unsigned long start, unsigned long end)
