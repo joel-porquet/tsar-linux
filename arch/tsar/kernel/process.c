@@ -7,6 +7,7 @@
  *  Joël Porquet <joel.porquet@lip6.fr>
  */
 
+#include <linux/irqflags.h>
 #include <linux/ptrace.h>
 #include <linux/sched.h>
 
@@ -15,6 +16,26 @@
 #include <asm/switch_to.h>
 #include <asm/thread_info.h>
 #include <asm/uaccess.h>
+
+/*
+ * Power management
+ */
+
+void arch_cpu_idle(void)
+{
+	/* enable IRQs before going to sleep, so that the cpu gets woken up
+	 * when required */
+	local_irq_enable();
+	/* put the cpu to sleep (with 3 nops due to pipeline) */
+	__asm__ __volatile__ (
+			".set push	\n"
+			"	wait	\n"
+			"	nop	\n"
+			"	nop	\n"
+			"	nop	\n"
+			".set pop	\n"
+			);
+}
 
 /*
  * Thread management
