@@ -73,14 +73,7 @@ ENTRY(kernel_entry)
 	/*
 	 * save bootup parameters before switching to VA
 	 */
-#if 0
-	/* TODO: we should be able to receive the device tree from the
-	 * bootloader here */
-	sw	a0, pa(boot_param0)
-	sw	a1, pa(boot_param1)
-	sw	a2, pa(boot_param2)
-	sw	a3, pa(boot_param3)
-#endif
+	sw	a0, pa(bootloader_param)
 
 	/*
 	 * initialize page global directory (swapper_pg_dir)

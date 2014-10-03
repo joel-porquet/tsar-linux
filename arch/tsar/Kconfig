@@ -115,6 +115,13 @@ config ARCH_TSARV5_LETI_FPGA
 endchoice
 
 ##
+# Device Tree Blob
+##
+
+config TSAR_BUILTIN_DTB
+	bool "Builtin DTB"
+
+##
 # Multi-processor and NUMA related tokens
 ##
 

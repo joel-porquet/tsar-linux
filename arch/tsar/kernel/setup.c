@@ -32,6 +32,8 @@ static struct resource kernel_bss_resource = { .name = "Kernel bss", };
 extern struct boot_param_header __dtb_start; /* defined by Linux */
 static void *dtb_start = &__dtb_start;
 
+unsigned long *bootloader_param;
+
 unsigned long __cpu_logical_map[NR_CPUS] = {
 	/* all entries are invalid by default */
 	[0 ... NR_CPUS - 1] = INVALID_HWCPUID,
@@ -115,6 +117,11 @@ void __init early_init_devtree(void *dtb)
 
 void __init setup_arch(char **cmdline_p)
 {
+#ifndef CONFIG_TSAR_BUILTIN_DTB
+	/* get the DTB via the bootloader */
+	dtb_start = __va((void*)bootloader_param[1]);
+#endif
+
 	/* early parsing of the device tree to setup the machine:
 	 * - memory banks (memblock api)
 	 * - bootargs (boot_command_line definition)
