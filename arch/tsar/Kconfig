@@ -137,7 +137,7 @@ config NUMA
 config NODES_SHIFT
 	int "Maximum NUMA nodes (as a power of 2)"
 	range 1 8
-	default "1"
+	default "6"
 	depends on NEED_MULTIPLE_NODES # enabled by NUMA
 
 config USE_PERCPU_NUMA_NODE_ID
