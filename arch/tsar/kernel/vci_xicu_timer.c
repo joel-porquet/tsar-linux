@@ -79,13 +79,13 @@ static irqreturn_t vci_xicu_timer_interrupt(int irq, void *dev_id)
 
 	if (evt->mode == CLOCK_EVT_MODE_ONESHOT) {
 		/* if one-shot, ack and deactivate the IRQ by writing */
-		pr_debug("CPU%ld: one-shot time INT at cycle %ld\n",
-				hw_cpu, read_c0_count());
+		//pr_debug(CPU_FMT_STR ": one-shot time INT at cycle %ld\n",
+		//		CPU_FMT_ARG(hw_cpu), read_c0_count());
 		writel(0, VCI_XICU_REG(xicu, XICU_PTI_PER, node_hw_cpu));
 	} else {
 		/* otherwise just ack the IRQ by reading */
-		pr_debug("CPU%ld: periodic time INT at cycle %ld\n",
-				hw_cpu, read_c0_count());
+		//pr_debug(CPU_FMT_STR ": periodic time INT at cycle %ld\n",
+		//		CPU_FMT_ARG(hw_cpu), read_c0_count());
 		readl(VCI_XICU_REG(xicu, XICU_PTI_ACK, node_hw_cpu));
 	}
 

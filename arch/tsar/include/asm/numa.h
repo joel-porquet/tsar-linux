@@ -41,10 +41,22 @@ void __init cpu_setup_nodes(void);
 extern unsigned char cpu_node_map[NR_CPUS];
 extern cpumask_t node_cpumask_map[MAX_NUMNODES];
 
+/*
+ * print formatting
+ */
+#define CPU_FMT_STR "CPU_%ld_%ld_%ld"
+#define CPU_FMT_ARG(n)		\
+	HWCPUID_TO_CLUSTERID_X(n),	\
+	HWCPUID_TO_CLUSTERID_Y(n),	\
+	HWCPUID_TO_LOCAL_ID(n)
+
 #else
 
 #define HWCPUID_TO_LOCAL_ID(cpu)	(cpu)
 #define paddr_to_nid(paddr)	(0)
+
+#define CPU_FMT_STR "CPU_%ld"
+#define CPU_FMT_ARG(n) (n)
 
 #endif
 

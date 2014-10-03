@@ -106,9 +106,9 @@ static int vci_xicu_hwi_set_affinity(struct irq_data *d,
 		}
 	}
 
-	pr_debug("Node%d: migrate HWI %ld to CPU%ld\n",
+	pr_debug("Node%d: migrate HWI %ld to " CPU_FMT_STR "\n",
 			xicu->node, hwirq,
-			cpu_logical_map(chosen_cpu));
+			CPU_FMT_ARG(cpu_logical_map(chosen_cpu)));
 
 	/* disable the old association */
 	vci_xicu_hwi_mask(d);
@@ -166,12 +166,12 @@ static inline void __vci_xicu_pcpu_generic_mask(struct irq_data *d, bool mask)
 	{
 #ifdef CONFIG_SMP
 	case IPI_IRQ:
-		pr_debug("CPU%ld: (un)mask IPI\n", hw_cpu);
+		pr_debug(CPU_FMT_STR ": (un)mask IPI\n", CPU_FMT_ARG(hw_cpu));
 		cmd = mask ? XICU_MSK_WTI_DISABLE : XICU_MSK_WTI_ENABLE;
 		break;
 #endif
 	case PTI_IRQ:
-		pr_debug("CPU%ld: (un)mask PTI\n", hw_cpu);
+		pr_debug(CPU_FMT_STR ": (un)mask PTI\n", CPU_FMT_ARG(hw_cpu));
 		cmd = mask ? XICU_MSK_PTI_DISABLE : XICU_MSK_PTI_ENABLE;
 		break;
 	}
@@ -290,7 +290,7 @@ SMP_IPI_CALL(vci_xicu_send_ipi)
 		xicu = vci_xicu[cpu_to_node(cpu)];
 		compute_hwcpuid(cpu, &hw_cpu, &node_hw_cpu);
 
-		pr_debug("Send IPI to CPU%ld\n", hw_cpu);
+		pr_debug("Send IPI to " CPU_FMT_STR "\n", CPU_FMT_ARG(hw_cpu));
 
 		writel(val, VCI_XICU_REG(xicu, XICU_WTI_REG, node_hw_cpu));
 	}
@@ -379,7 +379,7 @@ static irqreturn_t vci_xicu_ipi_interrupt(int irq, void *dev_id)
 	compute_hwcpuid(smp_processor_id(), &hw_cpu, &node_hw_cpu);
 	readl(VCI_XICU_REG(xicu, XICU_WTI_REG, node_hw_cpu));
 
-	pr_debug("CPU%ld: received an IPI\n", hw_cpu);
+	pr_debug(CPU_FMT_STR ": received an IPI\n", CPU_FMT_ARG(hw_cpu));
 
 	handle_IPI();
 

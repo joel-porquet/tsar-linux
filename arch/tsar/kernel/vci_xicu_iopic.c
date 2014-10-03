@@ -90,8 +90,8 @@ static inline void __vci_iopic_generic_mask_enable(struct irq_data *d,
 
 	outirq = VCI_XICU_CPUID_MAP(node_hw_cpu);
 
-	pr_debug("Node%d: (un)mask IOIRQ %ld on CPU%ld\n",
-			xicu->node, hwirq, hw_cpu);
+	pr_debug("Node%d: (un)mask IOIRQ %ld on " CPU_FMT_STR "\n",
+			xicu->node, hwirq, CPU_FMT_ARG(hw_cpu));
 
 	cmd = mask ? XICU_MSK_WTI_DISABLE : XICU_MSK_WTI_ENABLE;
 
@@ -153,8 +153,8 @@ static int vci_iopic_set_affinity(struct irq_data *d,
 	if (chosen_cpu >= nr_cpu_ids)
 		return -EINVAL;
 
-	pr_debug("Migrate IOIRQ %ld to CPU%ld\n",
-			hwirq, cpu_logical_map(chosen_cpu));
+	pr_debug("Migrate IOIRQ %ld to " CPU_FMT_STR "\n",
+			hwirq, CPU_FMT_ARG(cpu_logical_map(chosen_cpu)));
 
 	/* disable the old association */
 	vci_iopic_disable(d);
