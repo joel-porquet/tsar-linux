@@ -214,6 +214,9 @@ static void __init pgd_range_init(unsigned long start, unsigned long end)
 
 		map_pmd_table(pgd, start, pte);
 
+		/* clear pte page */
+		clear_page(__va(pte));
+
 		start = next;
 		pgd++;
 		pte += (PTRS_PER_PTE * sizeof(pte_t));
