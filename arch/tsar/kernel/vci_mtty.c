@@ -12,6 +12,7 @@
 #include <linux/interrupt.h>
 #include <linux/ioport.h>
 #include <linux/module.h>
+#include <linux/of.h>
 #include <linux/platform_device.h>
 #include <linux/serial_core.h>
 #include <linux/slab.h>
@@ -31,14 +32,11 @@ struct vci_tty_data {
 	struct tty_port port;
 	void __iomem *virt_base;
 	unsigned int rx_irq;
-	unsigned int id;
+	unsigned int index;
 	struct console console;
 };
 
-static DEFINE_MUTEX(vci_tty_mutex);
 static struct tty_driver *vci_tty_driver;
-static unsigned int vci_tty_line_count = 1;
-static struct vci_tty_data *vci_ttys;
 
 /* vci_tty register map */
 #define VCI_TTY_WRITE	0x0 // WO: character to print
@@ -67,10 +65,10 @@ static void vci_tty_do_putchar(struct vci_tty_data *tty, const char c)
 	__raw_writeb(c, tty->virt_base + VCI_TTY_WRITE);
 }
 
-static void vci_tty_do_write(unsigned int line, const char *buf, unsigned count)
+static void vci_tty_do_write(struct vci_tty_data *tty, unsigned int line, const
+		char *buf, unsigned count)
 {
 	unsigned long irq_flags;
-	struct vci_tty_data *tty = &vci_ttys[line];
 
 	spin_lock_irqsave(&tty->lock, irq_flags);
 
@@ -90,7 +88,9 @@ static void vci_tty_do_write(unsigned int line, const char *buf, unsigned count)
 
 static void vci_tty_console_write(struct console *co, const char *buf, unsigned int count)
 {
-	vci_tty_do_write(co->index, buf, count);
+	struct vci_tty_data *tty = co->data;
+
+	vci_tty_do_write(tty, co->index, buf, count);
 }
 
 static struct tty_driver *vci_tty_console_device(struct console *co, int *index)
@@ -101,9 +101,11 @@ static struct tty_driver *vci_tty_console_device(struct console *co, int *index)
 
 static int vci_tty_console_setup(struct console *co, char *options)
 {
-	if((unsigned)co->index >= vci_tty_line_count)
+	struct vci_tty_data *tty = co->data;
+
+	if((unsigned)co->index >= vci_tty_driver->num)
 		return -ENODEV;
-	if(vci_ttys[co->index].virt_base == 0)
+	if(tty->virt_base == 0)
 		return -ENODEV;
 	return 0;
 }
@@ -131,10 +133,40 @@ static irqreturn_t vci_tty_interrupt(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+/* tty port operations */
+static int vci_tty_port_activate(struct tty_port *port, struct tty_struct *tty_st)
+{
+	struct vci_tty_data *tty = tty_st->driver_data;
+	int ret;
+
+	ret = devm_request_irq(tty->dev, tty->rx_irq, vci_tty_interrupt, 0,
+			"vci_tty", tty);
+	if (ret) {
+		dev_err(tty->dev, "could not request rx irq %u (ret=%i)\n",
+				tty->rx_irq, ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+static void vci_tty_port_shutdown(struct tty_port *port)
+{
+	struct vci_tty_data *tty = port->tty->driver_data;
+
+	devm_free_irq(tty->dev, tty->rx_irq, tty);
+}
+
+static const struct tty_port_operations vci_tty_port_ops = {
+	.activate = vci_tty_port_activate,
+	.shutdown = vci_tty_port_shutdown,
+};
+
 /* tty operations */
 static int vci_tty_install(struct tty_driver *driver, struct tty_struct *tty_st)
 {
-	struct vci_tty_data *tty = &vci_ttys[tty_st->index];
+	struct vci_tty_data *tty = ((struct vci_tty_data**)
+			driver->driver_state)[tty_st->index];
 
 	tty_st->driver_data = tty;
 
@@ -162,12 +194,15 @@ static void vci_tty_close(struct tty_struct *tty_st, struct file *filp)
 static void vci_tty_hangup(struct tty_struct *tty_st)
 {
 	struct vci_tty_data *tty = tty_st->driver_data;
+
 	tty_port_hangup(&tty->port);
 }
 
 static int vci_tty_write(struct tty_struct *tty_st, const unsigned char *buf, int count)
 {
-	vci_tty_do_write(tty_st->index, buf, count);
+	struct vci_tty_data *tty = tty_st->driver_data;
+
+	vci_tty_do_write(tty, tty_st->index, buf, count);
 	return count;
 }
 
@@ -179,6 +214,7 @@ static int vci_tty_write_room(struct tty_struct *tty_st)
 static int vci_tty_chars_in_buffer(struct tty_struct *tty_st)
 {
 	struct vci_tty_data *tty = tty_st->driver_data;
+
 	return vci_tty_do_ischar(tty);
 }
 
@@ -191,19 +227,18 @@ static int vci_tty_poll_init(struct tty_driver *driver, int line, char *options)
 
 static int vci_tty_poll_get_char(struct tty_driver *driver, int line)
 {
-	struct tty_port *port = driver->ports[line];
-	struct vci_tty_data *tty = container_of(port, struct vci_tty_data, port);
+	struct vci_tty_data *tty = (struct vci_tty_data**)
+		driver->driver_state[line]
 
 	if (!vci_tty_do_ischar(tty))
 		return NO_POLL_CHAR;
-
 	return vci_tty_do_getchar(tty);
 }
 
 static void vci_tty_poll_put_char(struct tty_driver *driver, int line, char ch)
 {
-	struct tty_port *port = driver->ports[line];
-	struct vci_tty_data *tty = container_of(port, struct vci_tty_data, port);
+	struct vci_tty_data *tty = (struct vci_tty_data**)
+		driver->driver_state[line]
 
 	vci_tty_do_putchar(tty, ch);
 }
@@ -224,96 +259,71 @@ static const struct tty_operations vci_tty_ops = {
 #endif
 };
 
-/* tty port operations */
-static int vci_tty_port_activate(struct tty_port *port, struct tty_struct *tty_st)
-{
-	struct vci_tty_data *tty = container_of(port, struct vci_tty_data, port);
-	int ret;
-
-	tty_st->driver_data = tty;
-
-	ret = request_irq(tty->rx_irq, vci_tty_interrupt, 0, "vci_tty", tty);
-	if (ret) {
-		dev_err(tty->dev, "could not request rx irq %u (ret=%i)\n",
-				tty->rx_irq, ret);
-		return ret;
-	}
-
-	return 0;
-}
-
-static void vci_tty_port_shutdown(struct tty_port *port)
-{
-	struct vci_tty_data *tty = container_of(port, struct vci_tty_data, port);
-
-	free_irq(tty->rx_irq, tty);
-}
-
-static const struct tty_port_operations vci_tty_port_ops = {
-	.activate = vci_tty_port_activate,
-	.shutdown = vci_tty_port_shutdown,
-};
-
 /*
  * Platform driver
  */
 
 static int vci_tty_pf_probe(struct platform_device *pdev)
 {
+	struct vci_tty_data **vci_ttys;
 	struct vci_tty_data *tty;
-
-	void __iomem *virt_base;
-	int rx_irq;
-
-	int id = pdev->id;
-
+	unsigned int index;
 	struct resource *res;
+	int ret = -EINVAL;
 
-	/* if id is -1, scan for a free id and use that one */
-	if (id == -1) {
-		for (id = 0; id < vci_tty_line_count; id++)
-			if (vci_ttys[id].virt_base == 0)
-				break;
-	}
+	/* get our private structure */
+	vci_ttys = vci_tty_driver->driver_state;
 
-	if (id < 0 || id >= vci_tty_line_count)
+	/* look for a free index and use that one */
+	for (index = 0; index < vci_tty_driver->num; index++)
+		if (vci_ttys[index] == NULL)
+			break;
+	if (index >= vci_tty_driver->num)
 		return -EINVAL;
+
+	/* allocate a new vci_tty_data instance */
+	tty = devm_kzalloc(&pdev->dev, sizeof(struct vci_tty_data),
+			GFP_KERNEL);
+	if (!tty) {
+		dev_err(&pdev->dev, "failed to allocate memory for %s node\n",
+				pdev->name);
+		return -ENOMEM;
+	}
+	vci_ttys[index] = tty;
+	tty->index = index;
 
 	/* get virq of the rx_irq that links the vci_tty to the parent icu (eg
 	 * vci_xicu).
 	 * Note that the virq has already been computed beforehand, with
 	 * respect to the irq_domain it belongs to. */
-	rx_irq = platform_get_irq(pdev, 0);
-	if (rx_irq < 0)
-		panic("%s: failed to get IRQ\n", pdev->name);
+	tty->rx_irq = platform_get_irq(pdev, 0);
+	if (tty->rx_irq < 0) {
+		dev_err(&pdev->dev, "failed to get IRQ for %s node\n",
+				pdev->name);
+		return -EINVAL;
+	}
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!res)
-		panic("%s: failed to get memory range\n", pdev->name);
+	tty->virt_base = devm_request_and_ioremap(&pdev->dev, res);
+	if (!tty->virt_base) {
+		dev_err(&pdev->dev, "failed to ioremap_resource for %s node\n",
+				pdev->name);
+		return -EADDRNOTAVAIL;
+	}
 
-	if (!request_mem_region(res->start, resource_size(res), res->name))
-		panic("%s: failed to request memory\n", pdev->name);
-
-	virt_base = ioremap_nocache(res->start, resource_size(res));
-
-	if (!virt_base)
-		panic("%s: failed to remap memory\n", pdev->name);
-
-	/* initialize our private data structure */
-	mutex_lock(&vci_tty_mutex);
-	tty = &vci_ttys[id];
-	tty->id = id;
+	/* complete the initialization of our private data structure */
 	spin_lock_init(&tty->lock);
 	tty_port_init(&tty->port);
 	tty->port.ops = &vci_tty_port_ops;
-	tty->rx_irq = rx_irq;
-	tty->virt_base = virt_base;
 
 	tty->dev = tty_port_register_device(&tty->port, vci_tty_driver,
-			id, &pdev->dev);
+			index, &pdev->dev);
 
-	if (IS_ERR(tty->dev))
-		panic("Could not register vci_tty (ret=%ld)\n", PTR_ERR(tty->dev));
+	if (IS_ERR(tty->dev)) {
+		dev_err(&pdev->dev, "could not register vci_tty (ret=%d)\n",
+				ret);
+		return PTR_ERR(tty->dev);
+	}
 
 	platform_set_drvdata(pdev, tty);
 
@@ -323,30 +333,24 @@ static int vci_tty_pf_probe(struct platform_device *pdev)
 	tty->console.device = vci_tty_console_device;
 	tty->console.setup = vci_tty_console_setup;
 	tty->console.flags = CON_PRINTBUFFER;
-	tty->console.index = id;
+	tty->console.index = index;
+	tty->console.data = tty;
 	register_console(&tty->console);
 
-	mutex_unlock(&vci_tty_mutex);
 	return 0;
-
-	/* TODO: should do a better error handling */
 }
 
 static int vci_tty_pf_remove(struct platform_device *pdev)
 {
+	struct vci_tty_data **vci_ttys = vci_tty_driver->driver_state;
 	struct vci_tty_data *tty = platform_get_drvdata(pdev);
 
-	mutex_lock(&vci_tty_mutex);
-
 	unregister_console(&tty->console);
-	tty_unregister_device(vci_tty_driver, tty->id);
+	tty_unregister_device(vci_tty_driver, tty->index);
 	tty_port_destroy(&tty->port);
-	iounmap(tty->virt_base);
-	tty->virt_base = 0;
-	/* XXX: irq_dispose_mapping? */
-	free_irq(tty->rx_irq, pdev);
 
-	mutex_unlock(&vci_tty_mutex);
+	vci_ttys[tty->index] = NULL;
+
 	return 0;
 }
 
@@ -372,21 +376,34 @@ static struct platform_driver vci_tty_pf_driver = {
 
 static int __init vci_tty_init(void)
 {
+	struct device_node *np;
+	unsigned int count = 0;
 	int ret;
+	struct vci_tty_data **vci_ttys;
 
 	pr_debug("Registering SoCLib VCI TTY driver\n");
 
-	/* create vci_tty private data structure */
-	vci_ttys = kzalloc(sizeof(struct vci_tty_data) * vci_tty_line_count, GFP_KERNEL);
-	if (!vci_ttys)
-		return -ENOMEM;
+	/* count the number of tty channels in the system */
+	for_each_compatible_node(np, NULL, "soclib,vci_multi_tty")
+		count++;
+
+	if (!count)
+		return -ENODEV;
 
 	/* create tty_driver structure */
-	vci_tty_driver = alloc_tty_driver(vci_tty_line_count);
+	vci_tty_driver = alloc_tty_driver(count);
 	if (!vci_tty_driver) {
-		ret = -ENOMEM;
-		goto error;
+		return -ENOMEM;
 	}
+
+	/* create vci_tty private data structure */
+	vci_ttys = kzalloc(sizeof(struct vci_tty_data *) * count, GFP_KERNEL);
+	if (!vci_ttys) {
+		pr_err("vci_tty: could not allocate private data structure\n");
+		ret = -ENOMEM;
+		goto error_tty_driver;
+	}
+	vci_tty_driver->driver_state = vci_ttys;
 
 	/* initialize tty_driver structure */
 	vci_tty_driver->driver_name = "vci_tty";
@@ -403,33 +420,36 @@ static int __init vci_tty_init(void)
 	ret = tty_register_driver(vci_tty_driver);
 	if (ret) {
 		pr_err("vci_tty: could not register tty driver (ret=%i)\n", ret);
-		goto error;
+		goto error_alloc_tty;
 	}
 
-	/* register platform driver */
+	/* register platform driver
+	 * note: device probing will already happen in this call */
 	ret = platform_driver_register(&vci_tty_pf_driver);
 	if (ret) {
 		pr_err("vci_tty: could not register platform driver (ret=%i)\n", ret);
-		goto error;
+		goto error_tty_register;
 	}
 
 	return 0;
-error:
-	if (vci_tty_driver) {
-		tty_unregister_driver(vci_tty_driver);
-		put_tty_driver(vci_tty_driver);
-	}
-	kfree(vci_ttys);
+
+error_tty_register:
+	tty_unregister_driver(vci_tty_driver);
+error_alloc_tty:
+	kfree(vci_tty_driver->driver_state);
+error_tty_driver:
+	put_tty_driver(vci_tty_driver);
 	return ret;
 }
 
 static void __exit vci_tty_exit(void)
 {
 	pr_debug("Unregistering SoCLib VCI TTY driver\n");
+
 	platform_driver_unregister(&vci_tty_pf_driver);
 	tty_unregister_driver(vci_tty_driver);
+	kfree(vci_tty_driver->driver_state);
 	put_tty_driver(vci_tty_driver);
-	kfree(vci_ttys);
 }
 
 module_init(vci_tty_init);
