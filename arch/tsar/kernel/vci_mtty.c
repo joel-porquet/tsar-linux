@@ -52,17 +52,17 @@ static char vci_tty_do_ischar(struct vci_tty_data *tty)
 	/* with the VHDL model, there are other meaniful bits in
 	 * VCI_TTY_STATUS. We should only test the LSB here.
 	 * It should transparently work for systemc simulations as well. */
-	return __raw_readl(tty->virt_base + VCI_TTY_STATUS) & 0x1 ? 1 : 0;
+	return readl(tty->virt_base + VCI_TTY_STATUS) & 0x1 ? 1 : 0;
 }
 
 static char vci_tty_do_getchar(struct vci_tty_data *tty)
 {
-	return __raw_readb(tty->virt_base + VCI_TTY_READ);
+	return readb(tty->virt_base + VCI_TTY_READ);
 }
 
 static void vci_tty_do_putchar(struct vci_tty_data *tty, const char c)
 {
-	__raw_writeb(c, tty->virt_base + VCI_TTY_WRITE);
+	writeb(c, tty->virt_base + VCI_TTY_WRITE);
 }
 
 static void vci_tty_do_write(struct vci_tty_data *tty, unsigned int line, const
@@ -274,7 +274,7 @@ static int vci_tty_pf_probe(struct platform_device *pdev)
 	/* get our private structure */
 	vci_ttys = vci_tty_driver->driver_state;
 
-	/* look for a free index and use that one */
+	/* look for a free index */
 	for (index = 0; index < vci_tty_driver->num; index++)
 		if (vci_ttys[index] == NULL)
 			break;
@@ -292,13 +292,13 @@ static int vci_tty_pf_probe(struct platform_device *pdev)
 	vci_ttys[index] = tty;
 	tty->index = index;
 
-	/* get virq of the rx_irq that links the vci_tty to the parent icu (eg
-	 * vci_xicu).
+	/* get the virq of the rx_irq that links the vci_tty to the parent icu
+	 * (eg vci_xicu).
 	 * Note that the virq has already been computed beforehand, with
 	 * respect to the irq_domain it belongs to. */
 	tty->rx_irq = platform_get_irq(pdev, 0);
 	if (tty->rx_irq < 0) {
-		dev_err(&pdev->dev, "failed to get IRQ for %s node\n",
+		dev_err(&pdev->dev, "failed to get virq for %s node\n",
 				pdev->name);
 		return -EINVAL;
 	}
@@ -354,8 +354,10 @@ static int vci_tty_pf_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#define VCI_TTY_OF_COMPATIBLE "soclib,vci_multi_tty"
+
 static const struct of_device_id vci_tty_pf_of_ids[] = {
-	{ .compatible = "soclib,vci_multi_tty" },
+	{ .compatible = VCI_TTY_OF_COMPATIBLE },
 	{}
 };
 MODULE_DEVICE_TABLE(of, vci_tty_pf_of_ids);
@@ -384,7 +386,7 @@ static int __init vci_tty_init(void)
 	pr_debug("Registering SoCLib VCI TTY driver\n");
 
 	/* count the number of tty channels in the system */
-	for_each_compatible_node(np, NULL, "soclib,vci_multi_tty")
+	for_each_compatible_node(np, NULL, VCI_TTY_OF_COMPATIBLE)
 		count++;
 
 	if (!count)
@@ -393,6 +395,7 @@ static int __init vci_tty_init(void)
 	/* create tty_driver structure */
 	vci_tty_driver = alloc_tty_driver(count);
 	if (!vci_tty_driver) {
+		pr_err("vci_tty: could not allocate tty driver\n");
 		return -ENOMEM;
 	}
 
