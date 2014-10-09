@@ -29,7 +29,7 @@
 		};
 
 		blockdevice {
-			compatible = "tsar,vci_block_device_tsar_v5";
+			compatible = "tsar,vci_block_device";
 			reg = <0x0 0x1c000000 0x40>;
 			interrupts = <1>;
 		};
