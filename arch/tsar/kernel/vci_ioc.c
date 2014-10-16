@@ -75,11 +75,11 @@ static void vci_ioc_submit_request(struct request *req)
 {
 	struct vci_ioc_data *ioc = req->rq_disk->private_data;
 
-	char *buffer;
+	unsigned long buffer;
 	unsigned long op;
 	unsigned long start_sector, sectors;
 
-	buffer = req->buffer;
+	buffer = virt_to_phys(req->buffer);
 	op = (rq_data_dir(req)) ? VCI_IOC_OP_WRITE : VCI_IOC_OP_READ;
 	start_sector = blk_rq_pos(req);
 	sectors = blk_rq_sectors(req);
@@ -88,7 +88,7 @@ static void vci_ioc_submit_request(struct request *req)
 			op=%ld, start_sector=%ld, sectors=%ld\n",
 			op, start_sector, sectors);
 
-	writel((u32)buffer, ioc->virt_base + VCI_IOC_BUFFER);
+	writel(buffer, ioc->virt_base + VCI_IOC_BUFFER);
 	writel(start_sector, ioc->virt_base + VCI_IOC_LBA);
 	writel(sectors, ioc->virt_base + VCI_IOC_COUNT);
 	/* the following operation launches the transfer */
