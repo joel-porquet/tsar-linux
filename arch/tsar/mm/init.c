@@ -276,6 +276,9 @@ void __init paging_init(void)
 	/* associate memory blocks with corresponding nodes */
 	memory_setup_nodes();
 
+	/* compute node distances */
+	init_node_distance_table();
+
 	fixmap_kmap_init();
 
 	/* zones size

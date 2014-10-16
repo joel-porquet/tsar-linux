@@ -32,6 +32,9 @@ int paddr_to_nid(phys_addr_t paddr);
 /* in mm/numa.c */
 void __init memory_setup_nodes(void);
 
+/* in mm/numa.c */
+void __init init_node_distance_table(void);
+
 /* in kernel/numa.c */
 void __init cpu_setup_nodes(void);
 

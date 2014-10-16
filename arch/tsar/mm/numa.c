@@ -73,6 +73,38 @@ void __init memory_setup_nodes(void)
 	}
 }
 
+unsigned char numa_distance[MAX_NUMNODES][MAX_NUMNODES];
+
+void __init init_node_distance_table(void)
+{
+	unsigned char node_from, node_to;
+
+	/* initialize the table (-1 means no possible connection) */
+	memset(numa_distance, -1, MAX_NUMNODES * MAX_NUMNODES);
+
+	for_each_online_node(node_from) {
+		unsigned char x_from, y_from;
+
+		y_from = node_from / tsar_xwidth;
+		x_from = node_from - y_from * tsar_xwidth;
+
+		for_each_online_node(node_to) {
+			unsigned char x_to, y_to;
+
+			y_to = node_to / tsar_xwidth;
+			x_to = node_to - y_to * tsar_xwidth;
+
+			/* the distance between two nodes is at minimum
+			 * LOCAL_DISTANCE, plus the manhattan distance between
+			 * them multiplied by the LOCAL_DISTANCE (basically we
+			 * add one LOCAL_DISTANCE unit for each hop of the 2-D
+			 * mesh) */
+			numa_distance[node_from][node_to] = LOCAL_DISTANCE +
+				(abs(x_from - x_to) + abs(y_from - y_to)) * LOCAL_DISTANCE;
+		}
+	}
+}
+
 int paddr_to_nid(phys_addr_t paddr)
 {
 	unsigned char x = PA_TO_CLUSTERID_X(paddr);

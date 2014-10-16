@@ -13,6 +13,12 @@
 /* TSAR is clusterized in a flat manner. A node doesn't have a parent */
 #define parent_node(node) (node)
 
+/*
+ * node distance
+ */
+extern unsigned char numa_distance[MAX_NUMNODES][MAX_NUMNODES];
+#define node_distance(from,to) (numa_distance[(from)][(to)])
+
 #endif
 
 #include <asm-generic/topology.h>
