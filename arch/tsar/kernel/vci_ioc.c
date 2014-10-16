@@ -17,7 +17,7 @@
 
 #include <asm/io.h>
 
-#define DEVICE_NAME "vci_ioc"
+#define DEVICE_NAME "ioc"
 
 /*
  * Driver for the SoCLib VCI IOC (vci_block_device*)
