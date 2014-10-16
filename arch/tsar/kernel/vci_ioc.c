@@ -84,9 +84,9 @@ static void vci_ioc_submit_request(struct request *req)
 	start_sector = blk_rq_pos(req);
 	sectors = blk_rq_sectors(req);
 
-	dev_dbg(ioc->dev, "vci_ioc_submit_request: \
-			op=%ld, start_sector=%ld, sectors=%ld\n",
-			op, start_sector, sectors);
+	dev_dbg(ioc->dev, "vci_ioc_submit_request: "
+			"op=%ld, start_sector=%ld, sectors=%ld\n buffer=0x%p",
+			op, start_sector, sectors, req->buffer);
 
 	writel(buffer, ioc->virt_base + VCI_IOC_BUFFER);
 	writel(start_sector, ioc->virt_base + VCI_IOC_LBA);
@@ -146,7 +146,7 @@ static irqreturn_t vci_ioc_interrupt(int irq, void *data)
 			error = -EIO;
 			break;
 		default:
-			dev_dbg(ioc->dev, "vci_ioc_interrupt: spurious INT\n");
+			dev_err(ioc->dev, "vci_ioc_interrupt: spurious INT\n");
 			error = -EIO;
 			break;
 	}
@@ -237,7 +237,13 @@ static int vci_ioc_pf_probe(struct platform_device *pdev)
 	/* complete the initialization of our private data structure */
 	ioc->dev = &pdev->dev;
 	spin_lock_init(&ioc->lock);
+
 	ioc->queue = blk_init_queue(vci_ioc_request, &ioc->lock);
+	if (!ioc->queue) {
+		dev_err(&pdev->dev, "failed to initialize blk queue\n");
+		return -ENOMEM;
+	}
+
 	ioc->queue->queuedata = ioc;
 
 	/* support up to 16 partitions (minors) */
