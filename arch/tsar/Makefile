@@ -50,6 +50,7 @@ core-y += arch/tsar/kernel/ arch/tsar/mm/
 core-y += arch/tsar/boot/dts/
 
 #drivers-$(CONFIG_MATH_EMULATION) += arch/tsar/math-emu/
+drivers-y += arch/tsar/drivers/
 
 boot := arch/tsar/boot
 
