@@ -80,7 +80,7 @@ enum hwirq_map {
 	((unsigned long *)((xicu)->virt) + __VCI_XICU_REG_OFFSET(func, index))
 
 #define VCI_XICU_REG_PADDR(xicu, func, index) \
-	((phys_addr_t)((xicu)->paddr) + __VCI_XICU_REG_OFFSET(func, index))
+	((phys_addr_t)((xicu)->paddr) + (__VCI_XICU_REG_OFFSET(func, index) << 2))
 
 /* VCI_XICU functions */
 #define XICU_WTI_REG		0x0 	/* indexed by WTI_INDEX	(R/W) */
