@@ -254,6 +254,7 @@ static int vci_ioc_pf_probe(struct platform_device *pdev)
 	ioc->gd->fops = &vci_ioc_fops;
 	ioc->gd->queue = ioc->queue;
 	ioc->gd->private_data = ioc;
+	ioc->gd->driverfs_dev = &pdev->dev;
 	sprintf(ioc->gd->disk_name, DEVICE_NAME "%u", index);
 	/* configure disk capacity */
 	set_capacity(ioc->gd, nb_sectors);
