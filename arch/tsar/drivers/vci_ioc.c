@@ -101,7 +101,7 @@ static void vci_ioc_do_request(struct request_queue *q)
 {
 	struct request *req;
 
-	while ((req = blk_fetch_request(q))) {
+	if ((req = blk_fetch_request(q))) {
 		if (req->cmd_type == REQ_TYPE_FS) {
 			vci_ioc_submit_request(req);
 		} else {
