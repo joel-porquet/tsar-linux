@@ -253,9 +253,9 @@ ENTRY(ret_from_intr)
 
 resume_userspace:
 	LOCAL_IRQ_DISABLE
-	lw	a2, TI_FLAGS($28)
+	lw	a1, TI_FLAGS($28)
 	li	t0, _TIF_WORK_MASK
-	and	t0, a2, t0
+	and	t0, a1, t0
 	bnez	t0, work_pending
 	j	restore_all
 
@@ -263,8 +263,8 @@ restore_all:
 	RESTORE_ALL_AND_RET
 
 work_pending:
-	/* a2 is already preloaded with TI_FLAGS(thread_info) */
-	andi	t0, a2, _TIF_NEED_RESCHED
+	/* a1 is already preloaded with TI_FLAGS(thread_info) */
+	andi	t0, a1, _TIF_NEED_RESCHED
 	beqz	t0, work_notifysig /* if it's not resched, then it's notify or sig */
 	jal	schedule
 	j	resume_userspace
@@ -272,6 +272,7 @@ work_pending:
 work_notifysig:
 	/* pending signals and notify-resume requests */
 	move	a0, sp
+	/* a1 is preloaded with TI_FLAGS(thread_info) */
 	jal	do_notify_resume
 	j	resume_userspace
 
@@ -288,9 +289,9 @@ ENTRY(ret_from_fork)
 
 syscall_exit:
 	LOCAL_IRQ_DISABLE
-	lw	a2, TI_FLAGS($28)
+	lw	a1, TI_FLAGS($28)
 	li	t0, _TIF_WORK_MASK
-	and	t0, a2, t0
+	and	t0, a1, t0
 	bnez	t0, syscall_exit_work
 	j	restore_all
 
