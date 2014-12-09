@@ -78,27 +78,25 @@ static void __init resource_init(void)
 
 /* This function overloads the weak default one. We want to constrain the
  * boundaries of memory banks to be aligned with big pages, so we don't have to
- * allocate anything (i.e. second level page tables) when mapping the low
- * memory. */
+ * allocate second level page tables when mapping the low memory.
+ *
+ * We do not deal with nodes at the moment because we do not know the size of
+ * the grid yet (thus the linear mapping of node numbers), not before we
+ * actually analyse all the memory banks. */
 void __init early_init_dt_add_memory_arch(u64 base, u64 size)
 {
-	/* align the memory banks on big page boundaries, so that we can map
-	 * them (i.e. the low memory) using only big pages. This avoids having
-	 * to allocate second-level page tables when mapping the low memory */
-	if (base & ~PMD_MASK) {
-		u64 new_base = round_up(base, PMD_SIZE);
-		pr_warning("Aligning base of memory block from 0x%llx to 0x%llx\n",
-				base, new_base);
-		base = new_base;
-	}
-	if (size & ~PMD_MASK) {
-		u64 new_size = round_down(size, PMD_SIZE);
-		pr_warning("Aligning size of memory block from 0x%llx to 0x%llx\n",
-				size, new_size);
-		size = new_size;
+	if ((base & ~PMD_MASK) || (size & ~PMD_MASK)) {
+		u64 start = round_up(base, PMD_SIZE);
+		u64 end = round_down((base + size), PMD_SIZE);
+
+		pr_warning("Aligning memory block from %#010llx-%#010llx "
+				"to %#010llx-%#010llx\n",
+				base, base + size,
+				start, end);
+		base = start;
+		size = end - start;
 	}
 
-	/* add the memory block */
 	memblock_add(base, size);
 }
 
