@@ -240,19 +240,46 @@ static void __init fixmap_kmap_init(void)
 
 static void __init zones_size_init(void)
 {
-	unsigned long max_zone_pfns[MAX_NR_ZONES];
+	unsigned long zones_size[MAX_NR_ZONES];
+	unsigned int node;
 
-	memset(max_zone_pfns, 0, sizeof(max_zone_pfns));
+	setup_nr_node_ids();
 
-	max_zone_pfns[ZONE_NORMAL] = max_low_pfn;
+	printk("Memory node ranges\n");
+
+	for_each_online_node(node) {
+		unsigned long start_pfn, end_pfn;
 #ifdef CONFIG_HIGHMEM
-	max_zone_pfns[ZONE_HIGHMEM] = max_pfn;
+		unsigned long high_start_pfn, high_end_pfn;
 #endif
+		unsigned long low_start_pfn, low_end_pfn;
 
-	/* we just have to specify the max pfn for each zone.
-	 * free_area_init_nodes will take care of the rest (e.g. finding the
-	 * min boundary of each zone). */
-	free_area_init_nodes(max_zone_pfns);
+		/* reset the zones for each node */
+		memset(zones_size, 0, sizeof(zones_size));
+
+		/* we assume there is only one contiguous memory segment per
+		 * node */
+		get_pfn_range_for_nid(node, &start_pfn, &end_pfn);
+
+		printk("  node %3d: [mem %#010llx-%#010llx]\n", node,
+				(unsigned long long)start_pfn << PAGE_SHIFT,
+				((unsigned long long)end_pfn << PAGE_SHIFT) - 1);
+
+#ifdef CONFIG_HIGHMEM
+		high_start_pfn = max(start_pfn, max_low_pfn);
+		high_end_pfn = max(end_pfn, max_low_pfn);
+		zones_size[ZONE_HIGHMEM] = high_end_pfn - high_start_pfn;
+#endif
+		low_start_pfn = min(start_pfn, max_low_pfn);
+		low_end_pfn = min(end_pfn, max_low_pfn);
+		zones_size[ZONE_NORMAL] = low_end_pfn - low_start_pfn;
+
+		free_area_init_node(node, zones_size, start_pfn, NULL);
+
+		if (node_present_pages(node))
+			node_set_state(node, N_MEMORY);
+		check_for_memory(NODE_DATA(node), node);
+	}
 }
 
 void __init paging_init(void)
