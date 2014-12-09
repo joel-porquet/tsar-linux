@@ -211,7 +211,7 @@ static unsigned long __meminitdata nr_kernel_pages;
 static unsigned long __meminitdata nr_all_pages;
 static unsigned long __meminitdata dma_reserve;
 
-#ifdef CONFIG_HAVE_MEMBLOCK_NODE_MAP
+#ifdef CONFIG_HAVE_MEMBLOCK_NODE_AUTOZONE
 static unsigned long __meminitdata arch_zone_lowest_possible_pfn[MAX_NR_ZONES];
 static unsigned long __meminitdata arch_zone_highest_possible_pfn[MAX_NR_ZONES];
 static unsigned long __initdata required_kernelcore;
@@ -221,7 +221,7 @@ static unsigned long __meminitdata zone_movable_pfn[MAX_NUMNODES];
 /* movable_zone is the "real" zone pages in ZONE_MOVABLE are taken from */
 int movable_zone;
 EXPORT_SYMBOL(movable_zone);
-#endif /* CONFIG_HAVE_MEMBLOCK_NODE_MAP */
+#endif /* CONFIG_HAVE_MEMBLOCK_NODE_AUTOZONE */
 
 #if MAX_NUMNODES > 1
 int nr_node_ids __read_mostly = MAX_NUMNODES;
@@ -4414,7 +4414,9 @@ void __meminit get_pfn_range_for_nid(unsigned int nid,
 	if (*start_pfn == -1UL)
 		*start_pfn = 0;
 }
+#endif /* CONFIG_HAVE_MEMBLOCK_NODE_MAP */
 
+#ifdef CONFIG_HAVE_MEMBLOCK_NODE_AUTOZONE
 /*
  * This finds a zone that can be used for ZONE_MOVABLE pages. The
  * assumption is made that zones within a node are ordered in monotonic
@@ -4555,8 +4557,7 @@ static unsigned long __meminit zone_absent_pages_in_node(int nid,
 			&zone_start_pfn, &zone_end_pfn);
 	return __absent_pages_in_range(nid, zone_start_pfn, zone_end_pfn);
 }
-
-#else /* CONFIG_HAVE_MEMBLOCK_NODE_MAP */
+#else /* CONFIG_HAVE_MEMBLOCK_NODE_AUTOZONE */
 static inline unsigned long __meminit zone_spanned_pages_in_node(int nid,
 					unsigned long zone_type,
 					unsigned long node_start_pfn,
@@ -4578,7 +4579,7 @@ static inline unsigned long __meminit zone_absent_pages_in_node(int nid,
 	return zholes_size[zone_type];
 }
 
-#endif /* CONFIG_HAVE_MEMBLOCK_NODE_MAP */
+#endif /* CONFIG_HAVE_MEMBLOCK_NODE_AUTOZONE */
 
 static void __meminit calculate_node_totalpages(struct pglist_data *pgdat,
 						unsigned long node_start_pfn,
@@ -4976,6 +4977,27 @@ unsigned long __init find_min_pfn_with_active_regions(void)
 	return find_min_pfn_for_node(MAX_NUMNODES);
 }
 
+/* Any regular or high memory on that node ? */
+void check_for_memory(pg_data_t *pgdat, int nid)
+{
+	enum zone_type zone_type;
+
+	if (N_MEMORY == N_NORMAL_MEMORY)
+		return;
+
+	for (zone_type = 0; zone_type <= ZONE_MOVABLE - 1; zone_type++) {
+		struct zone *zone = &pgdat->node_zones[zone_type];
+		if (populated_zone(zone)) {
+			node_set_state(nid, N_HIGH_MEMORY);
+			if (N_NORMAL_MEMORY != N_HIGH_MEMORY &&
+			    zone_type <= ZONE_NORMAL)
+				node_set_state(nid, N_NORMAL_MEMORY);
+			break;
+		}
+	}
+}
+
+#ifdef CONFIG_HAVE_MEMBLOCK_NODE_AUTOZONE
 /*
  * early_calculate_totalpages()
  * Sum pages in active regions for movable zone.
@@ -5141,26 +5163,6 @@ out:
 	node_states[N_MEMORY] = saved_node_state;
 }
 
-/* Any regular or high memory on that node ? */
-static void check_for_memory(pg_data_t *pgdat, int nid)
-{
-	enum zone_type zone_type;
-
-	if (N_MEMORY == N_NORMAL_MEMORY)
-		return;
-
-	for (zone_type = 0; zone_type <= ZONE_MOVABLE - 1; zone_type++) {
-		struct zone *zone = &pgdat->node_zones[zone_type];
-		if (populated_zone(zone)) {
-			node_set_state(nid, N_HIGH_MEMORY);
-			if (N_NORMAL_MEMORY != N_HIGH_MEMORY &&
-			    zone_type <= ZONE_NORMAL)
-				node_set_state(nid, N_NORMAL_MEMORY);
-			break;
-		}
-	}
-}
-
 /**
  * free_area_init_nodes - Initialise all pg_data_t and zone data
  * @max_zone_pfn: an array of max PFNs for each zone
@@ -5282,6 +5284,7 @@ static int __init cmdline_parse_movablecore(char *p)
 early_param("kernelcore", cmdline_parse_kernelcore);
 early_param("movablecore", cmdline_parse_movablecore);
 
+#endif /* CONFIG_HAVE_MEMBLOCK_NODE_AUTOZONE */
 #endif /* CONFIG_HAVE_MEMBLOCK_NODE_MAP */
 
 void adjust_managed_page_count(struct page *page, long count)
