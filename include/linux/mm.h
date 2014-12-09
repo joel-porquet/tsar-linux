@@ -1565,6 +1565,7 @@ static inline unsigned long get_num_physpages(void)
  * See mm/page_alloc.c for more information on each function exposed by
  * CONFIG_HAVE_MEMBLOCK_NODE_MAP.
  */
+extern void check_for_memory(pg_data_t *pgdat, int nid);
 extern void free_area_init_nodes(unsigned long *max_zone_pfn);
 unsigned long node_map_pfn_alignment(void);
 unsigned long __absent_pages_in_range(int nid, unsigned long start_pfn,
