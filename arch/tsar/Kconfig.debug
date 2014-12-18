@@ -13,10 +13,4 @@ config EARLY_PRINTK
 	  This option enables special console drivers which allow the kernel
 	  to print messages very early in the bootup process.
 
-config MEMBLOCK_DEBUG
-	bool "Memblock API debug" if EXPERT
-	default n
-	help
-	  This option enables the debugging facility of the memblock API.
-
 endmenu
