@@ -2,6 +2,7 @@
 #define _ASM_TSAR_PGTABLE_H
 
 #include <linux/const.h>
+#include <linux/mm_types.h>
 #include <linux/sizes.h>
 
 #include <asm-generic/pgtable-nopmd.h>
