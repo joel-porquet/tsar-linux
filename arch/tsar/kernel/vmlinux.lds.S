@@ -112,7 +112,7 @@ SECTIONS
 
 	/*
 	 * bss segment
-	 * - force .bss to PAGE_SIZE*2 (=8KiB) alignment
+	 * - force .bss to PAGE_SIZE*2 (=8KiB) alignment for swapper_pg_dir
 	 * - .sbss is supposed to be empty
 	 */
 	BSS_SECTION(0, PAGE_SIZE * 2, 0)
