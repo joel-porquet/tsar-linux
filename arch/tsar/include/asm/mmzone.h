@@ -1,6 +1,8 @@
 #ifndef _ASM_TSAR_MMZONE_H
 #define _ASM_TSAR_MMZONE_H
 
+#include <linux/pfn.h>
+
 #include <asm/numa.h>
 
 /*
@@ -38,15 +40,9 @@ static inline int pfn_to_nid(unsigned long pfn)
 #else
 
 /* fast version */
-static inline int pfn_to_nid(unsigned long pfn)
+static inline unsigned int pfn_to_nid(unsigned long pfn)
 {
-	phys_addr_t paddr = (phys_addr_t)pfn << PAGE_SHIFT;
-	unsigned int nid = paddr_to_nid(paddr);
-	if (nid < MAX_NUMNODES && NODE_DATA(nid)
-			&& pfn >= node_start_pfn(nid)
-			&& pfn < node_end_pfn(nid))
-		return nid;
-	return NUMA_NO_NODE;
+	return paddr_to_nid(PFN_PHYS(pfn));
 }
 
 #endif
@@ -54,7 +50,12 @@ static inline int pfn_to_nid(unsigned long pfn)
 static inline int pfn_valid(unsigned long pfn)
 {
 	unsigned int nid = pfn_to_nid(pfn);
-	return (nid != NUMA_NO_NODE);
+
+	if (nid < MAX_NUMNODES && NODE_DATA(nid)
+			&& pfn >= node_start_pfn(nid)
+			&& pfn < node_end_pfn(nid))
+		return 1;
+	return 0;
 }
 
 #endif
