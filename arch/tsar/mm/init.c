@@ -38,11 +38,32 @@ static void * __initdata vmalloc_min =
 static unsigned long __initdata lowmem_limit = 0;
 
 #ifndef CONFIG_NEED_MULTIPLE_NODES
-void __init memory_setup_nodes(void)
+static inline void *__init early_memory_setup_nodes(unsigned long limit)
 {
+	unsigned long limit_pfn = PFN_DOWN(limit);
+
 	/* put the entire memory address space in node 0 */
 	memblock_set_node(0, (phys_addr_t)ULLONG_MAX, 0);
+
+	/* upper limit for memblock allocation:
+	 * reserve the area instead of using memblock_set_current_limit() so we
+	 * match the NUMA approach */
+	memblock_reserve(limit, PFN_PHYS(max_pfn) - limit);
+
+#ifndef CONFIG_HIGHMEM
+	if (max_pfn > limit_pfn) {
+		pr_warning("Warning: memory above %ldMB cannot be used"
+				" (!CONFIG_HIGHMEM).\n",
+				(unsigned long)(limit >> 20));
+	}
+#endif
+	max_low_pfn = limit_pfn;
+
+	/* return the high memory limit which determines the starting point of
+	 * the vmalloc area */
+	return __va_offset(limit);
 }
+static inline void __init memory_setup_nodes(void) {}
 #endif
 
 static void __init memory_init(void)
@@ -53,39 +74,25 @@ static void __init memory_init(void)
 	init_mm.end_data   = (unsigned long) _edata;
 	init_mm.brk	   = (unsigned long) _end;
 
-
-	/* register the kernel text and data */
-	memblock_reserve(__pa(_stext), _end - _stext);
-
-	/* reservation is completed - memblock internals can resize itself */
-	memblock_allow_resize();
-	memblock_dump_all();
+	/* reserve the kernel text and data */
+	memblock_reserve(__pa_offset((unsigned long)_stext), _end - _stext);
 
 	/* minimum and maximum physical page numbers */
 	min_low_pfn = PFN_UP(memblock_start_of_DRAM());
 	max_pfn = PFN_DOWN(memblock_end_of_DRAM());
 
-	lowmem_limit = min((phys_addr_t)__pa(vmalloc_min - 1) + 1,
-			(memblock_end_of_DRAM() - 1) + 1);
+	/* the maximum amount of possible lowmem */
+	lowmem_limit = min(__pa_offset((unsigned long)vmalloc_min & PAGE_MASK),
+			PFN_PHYS(max_pfn));
 
-	/* tell memblock the upper limit for allocation */
-	memblock_set_current_limit(lowmem_limit - 1);
+	/* associate memory blocks with nodes
+	 * determine lowmem mapping
+	 * returns high_memory boundary */
+	high_memory = early_memory_setup_nodes(lowmem_limit);
 
-	/* if amount of RAM is superior to lowmem_limit */
-	if (max_pfn > PFN_DOWN(lowmem_limit)) {
-#ifndef CONFIG_HIGHMEM
-		pr_warning("Warning: memory above %ldMB cannot be used"
-				" (!CONFIG_HIGHMEM).\n",
-				(unsigned long)(lowmem_limit >> 20));
-#endif
-		max_low_pfn = PFN_DOWN(lowmem_limit);
-	} else {
-		max_low_pfn = max_pfn;
-	}
-
-	/* setup the high memory limit (it determines the starting point of
-	 * the vmalloc area) */
-	high_memory = (void*)__va(PFN_PHYS(max_low_pfn));
+	/* reservation is completed - memblock internals can resize itself */
+	memblock_allow_resize();
+	memblock_dump_all();
 
 	pr_debug("%s: min_low_pfn: %#lx\n", __func__, min_low_pfn);
 	pr_debug("%s: max_low_pfn: %#lx\n", __func__, max_low_pfn);
@@ -130,20 +137,21 @@ static void __init map_pmd_section(pgd_t *pgd, unsigned long vaddr,
 
 static void __init map_lowmem(void)
 {
-	struct memblock_region *reg;
+	u64 i;
+	unsigned int nid;
+	phys_addr_t paddr, pend;
 
-	/* map all the lowmem memory banks. */
-	for_each_memblock(memory, reg) {
-		phys_addr_t paddr = reg->base;
-		phys_addr_t pend = paddr + reg->size;
+	/* map the lowmem areas:
+	 * They have been computed earlier and are the only ones being "free".
+	 * Highmem areas are reserved. */
+	for_each_free_mem_range(i, MAX_NUMNODES, &paddr, &pend, &nid) {
 		unsigned long vaddr, vend;
 		pgd_t *pgd;
 
-		/* do not map beyond lowmem */
-		if (pend > lowmem_limit)
-			pend = lowmem_limit;
-		if (paddr >= pend)
-			break;
+		/* for node0, align the start address to the next big page
+		 * (because of the kernel reservation in memory_init) */
+		if (!nid)
+			paddr = ALIGN(paddr, PMD_SIZE);
 
 		vaddr = (unsigned long)__va(paddr);
 		vend = (unsigned long)__va(pend);
@@ -228,45 +236,58 @@ static void __init fixmap_kmap_init(void)
 
 static void __init zones_size_init(void)
 {
-	unsigned long zones_size[MAX_NR_ZONES];
-	unsigned int node;
+	unsigned int nid;
 
 	setup_nr_node_ids();
 
 	printk("Memory node ranges\n");
 
-	for_each_online_node(node) {
+	for_each_online_node(nid) {
+		unsigned long zones_size[MAX_NR_ZONES];
 		unsigned long start_pfn, end_pfn;
-#ifdef CONFIG_HIGHMEM
-		unsigned long high_start_pfn, high_end_pfn;
-#endif
-		unsigned long low_start_pfn, low_end_pfn;
+		unsigned long local_start_pfn, local_end_pfn;
 
 		/* reset the zones for each node */
 		memset(zones_size, 0, sizeof(zones_size));
 
-		/* we assume there is only one contiguous memory segment per
-		 * node */
-		get_pfn_range_for_nid(node, &start_pfn, &end_pfn);
+		/* XXX: we assume there is only one contiguous memory segment
+		 * per node - it's too much of a pain to support multiple
+		 * segments */
+		get_pfn_range_for_nid(nid, &start_pfn, &end_pfn);
 
-		printk("  node %3d: [mem %#010llx-%#010llx]\n", node,
-				(unsigned long long)start_pfn << PAGE_SHIFT,
-				((unsigned long long)end_pfn << PAGE_SHIFT) - 1);
+		local_start_pfn = PFN_TO_LOCAL_PFN(start_pfn);
+		local_end_pfn = PFN_TO_LOCAL_PFN(end_pfn);
+
+		printk("  node %3d: [mem %#010llx-%#010llx]\n", nid,
+				PFN_PHYS(start_pfn), PFN_PHYS(end_pfn) - 1);
+
+		if (NUMA_HIGHMEM_NODE(nid)) {
+#ifdef CONFIG_HIGHMEM
+			/* the whole block is highmem */
+			zones_size[ZONE_HIGHMEM] = local_end_pfn -
+				local_start_pfn;
+#endif
+		} else {
+#ifdef CONFIG_HIGHMEM
+			unsigned long high_start_pfn, high_end_pfn;
+#endif
+			unsigned long low_start_pfn, low_end_pfn;
 
 #ifdef CONFIG_HIGHMEM
-		high_start_pfn = max(start_pfn, max_low_pfn);
-		high_end_pfn = max(end_pfn, max_low_pfn);
-		zones_size[ZONE_HIGHMEM] = high_end_pfn - high_start_pfn;
+			high_start_pfn = max(local_start_pfn, max_low_pfn);
+			high_end_pfn = max(local_end_pfn, max_low_pfn);
+			zones_size[ZONE_HIGHMEM] = high_end_pfn - high_start_pfn;
 #endif
-		low_start_pfn = min(start_pfn, max_low_pfn);
-		low_end_pfn = min(end_pfn, max_low_pfn);
-		zones_size[ZONE_NORMAL] = low_end_pfn - low_start_pfn;
+			low_start_pfn = min(local_start_pfn, max_low_pfn);
+			low_end_pfn = min(local_end_pfn, max_low_pfn);
+			zones_size[ZONE_NORMAL] = low_end_pfn - low_start_pfn;
+		}
 
-		free_area_init_node(node, zones_size, start_pfn, NULL);
+		free_area_init_node(nid, zones_size, start_pfn, NULL);
 
-		if (node_present_pages(node))
-			node_set_state(node, N_MEMORY);
-		check_for_memory(NODE_DATA(node), node);
+		if (node_present_pages(nid))
+			node_set_state(nid, N_MEMORY);
+		check_for_memory(NODE_DATA(nid), nid);
 	}
 }
 
@@ -289,9 +310,6 @@ void __init paging_init(void)
 	/* finish configuring nodes */
 	memory_setup_nodes();
 
-	/* compute node distances */
-	init_node_distance_table();
-
 	fixmap_kmap_init();
 
 	/* zones size
@@ -303,26 +321,53 @@ void __init paging_init(void)
 static void __init free_highmem(void)
 {
 #ifdef CONFIG_HIGHMEM
-	struct memblock_region *reg;
-	unsigned long pfn;
+	int i, nid;
+	unsigned long start_pfn, end_pfn;
 
-	/* scan all memblocks */
-	for_each_memblock(memory, reg) {
-		unsigned long start_pfn = PFN_UP(reg->base);
-		unsigned long end_pfn = PFN_DOWN(reg->base + reg->size);
+	for_each_mem_pfn_range(i, MAX_NUMNODES, &start_pfn, &end_pfn, &nid) {
+		unsigned long pfn;
 
-		/* memblock is lowmem, skip it */
-		if (end_pfn <= max_low_pfn)
+		if (NUMA_HIGHMEM_NODE(nid)) {
+			/* free the whole bank */
+			pfn = start_pfn;
+		} else if (PFN_TO_LOCAL_PFN(end_pfn) > max_low_pfn) {
+			/* part of the bank is highmem */
+			pfn = ALIGN(start_pfn, max_low_pfn);
+		} else
 			continue;
-		/* memblock is across boundary, skip the beginning */
-		if (start_pfn < max_low_pfn)
-			start_pfn = max_low_pfn;
 
-		/* free high pages of the memblock */
-		for (pfn = start_pfn; pfn < end_pfn; pfn++)
+		for ( ; pfn < end_pfn; pfn++)
 			free_highmem_page(pfn_to_page(pfn));
 	}
 #endif
+}
+
+static void __init free_lowmem(void)
+{
+	u64 i;
+	phys_addr_t paddr, pend;
+
+	reset_all_zones_managed_pages();
+
+	/* lowmem has been put in free ranges */
+	for_each_free_mem_range(i, MAX_NUMNODES, &paddr, &pend, NULL) {
+		unsigned long start_pfn = PFN_UP(paddr);
+		unsigned long end_pfn = PFN_DOWN(pend);
+		int order;
+
+		totalram_pages += end_pfn - start_pfn;
+
+		while (start_pfn < end_pfn) {
+			order = min(MAX_ORDER - 1UL, __ffs(start_pfn));
+
+			while (start_pfn + (1UL << order) > end_pfn)
+				order --;
+
+			__free_pages_bootmem(pfn_to_page(start_pfn), order);
+
+			start_pfn += (1UL << order);
+		}
+	}
 }
 
 void __init mem_init(void)
@@ -350,9 +395,10 @@ void __init mem_init(void)
 			VMALLOC_START, VMALLOC_END,
 			(VMALLOC_END - VMALLOC_START) >> 20);
 	pr_cont("    lowmem  : 0x%08lx - 0x%08lx   (%4ld MB) (cached)\n",
-			(unsigned long)__va(0), (unsigned long)high_memory,
-			((unsigned long)high_memory - (unsigned long)__va(0))
-			>> 20);
+			(unsigned long)__va_offset(0),
+			(unsigned long)high_memory,
+			((unsigned long)high_memory -
+			 (unsigned long)__va_offset(0)) >> 20);
 	pr_cont("      .init : 0x%08lx - 0x%08lx   (%4ld kB)\n",
 			(unsigned long)&__init_begin, (unsigned long)&__init_end,
 			((unsigned long)&__init_end -

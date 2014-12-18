@@ -6,34 +6,70 @@
 #include <linux/cpumask.h>
 #include <linux/numa.h>
 
+/* node grid size */
 extern unsigned char tsar_ywidth;
 extern unsigned char tsar_xwidth;
 
+/* lowmem mapping */
+extern unsigned long node_lowmem_size;
+extern unsigned char node_lowmem_scale;
+
+extern unsigned char node_lowmem_sz_log2;
+extern unsigned char node_lowmem_sc_log2;
+
+#define NUMA_HIGHMEM_NODE(nid) !!((nid) & (node_lowmem_scale - 1))
+
 /*
  * 40-bit physical addresses are structured as:
- * |39-36|35-32| 31-0          |
- * |  X  |  Y  | cluster local |
+ * |39-36|35-32| 31-0                  |
+ * |  X  |  Y  | cluster local address |
  */
-#define PA_TO_CLUSTERID_X(pa)	(((pa) >> 36) & 0xF)
-#define PA_TO_CLUSTERID_Y(pa)	(((pa) >> 32) & 0xF)
-#define PA_TO_LOCAL_ADDR(pa)	((pa) & 0xFFFFFFFF)
+#define CLUSTERID_MASK		0xfU
+#define CLUSTERLA_MASK		0xffffffffUL
+
+#define PA_TO_CLUSTERID_X(pa)	(((pa) >> 36) & CLUSTERID_MASK)
+#define PA_TO_CLUSTERID_Y(pa)	(((pa) >> 32) & CLUSTERID_MASK)
+
+#define PA_TO_LOCAL_ADDR(pa)	((pa) & CLUSTERLA_MASK)
+#define PFN_TO_LOCAL_PFN(pfn)	((pfn) & PFN_DOWN(CLUSTERLA_MASK))
 
 /*
  * 10-bit hw cpuid are structured as:
- * |9-6|5-2|1-0       |
- * | X | Y | local id |
+ * |9-6|5-2|1-0               |
+ * | X | Y | cluster local id |
  */
-#define HWCPUID_TO_CLUSTERID_X(cpu)	(((cpu) >> 6) & 0xF)
-#define HWCPUID_TO_CLUSTERID_Y(cpu)	(((cpu) >> 2) & 0xF)
-#define HWCPUID_TO_LOCAL_ID(cpu)	((cpu) & 0x3)
+#define CLUSTERLI_MASK			0x3U
 
-int paddr_to_nid(phys_addr_t paddr);
+#define HWCPUID_TO_CLUSTERID_X(cpu)	(((cpu) >> 6) & CLUSTERID_MASK)
+#define HWCPUID_TO_CLUSTERID_Y(cpu)	(((cpu) >> 2) & CLUSTERID_MASK)
+#define HWCPUID_TO_LOCAL_ID(cpu)	((cpu) & CLUSTERLI_MASK)
+
+static inline unsigned int paddr_to_nid(phys_addr_t paddr)
+{
+	unsigned char x = PA_TO_CLUSTERID_X(paddr);
+	unsigned char y = PA_TO_CLUSTERID_Y(paddr);
+
+	unsigned char nid = y * tsar_xwidth + x;
+
+	/* don't check the y coordinate to allow the IO node on LETI system
+	 * to get a node number from this function */
+	BUG_ON(x >= tsar_xwidth);
+
+	return nid;
+}
+
+static inline phys_addr_t nid_to_paddr(unsigned int nid)
+{
+	unsigned char x = nid % tsar_xwidth;
+	unsigned char y = nid / tsar_xwidth;
+
+	return ((phys_addr_t)x << 36 | (phys_addr_t)y << 32);
+}
+
 
 /* in mm/numa.c */
+void *__init early_memory_setup_nodes(unsigned long);
 void __init memory_setup_nodes(void);
-
-/* in mm/numa.c */
-void __init init_node_distance_table(void);
 
 /* in kernel/numa.c */
 void __init cpu_setup_nodes(void);
@@ -55,8 +91,13 @@ extern cpumask_t node_cpumask_map[MAX_NUMNODES];
 
 #else
 
+#define PA_TO_LOCAL_ADDR(pa)		(pa)
+#define PFN_TO_LOCAL_PFN(pfn)		(pfn)
+
+#define NUMA_HIGHMEM_NODE(nid)		(0)
+
 #define HWCPUID_TO_LOCAL_ID(cpu)	(cpu)
-#define paddr_to_nid(paddr)	(0)
+#define paddr_to_nid(paddr)		(0)
 
 #define CPU_FMT_STR "CPU_%ld"
 #define CPU_FMT_ARG(n) (n)

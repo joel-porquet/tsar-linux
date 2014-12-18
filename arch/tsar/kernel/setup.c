@@ -117,7 +117,7 @@ void __init setup_arch(char **cmdline_p)
 {
 #ifndef CONFIG_TSAR_BUILTIN_DTB
 	/* get the DTB via the bootloader */
-	dtb_start = __va((void*)bootloader_param[1]);
+	dtb_start = __va_offset((void*)bootloader_param[1]);
 #endif
 
 	/* early parsing of the device tree to setup the machine:

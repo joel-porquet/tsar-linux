@@ -54,8 +54,36 @@ typedef struct page *pgtable_t;
 
 #ifndef __ASSEMBLY__
 
-#define __va(x) ((void *)((unsigned long) (x) + PAGE_OFFSET))
-#define __pa(x) ((unsigned long) (x) - PAGE_OFFSET)
+#define __va_offset(x) ((void *)((unsigned long)(x) + PAGE_OFFSET))
+#define __pa_offset(x) ((phys_addr_t)(x) - PAGE_OFFSET)
+
+#ifdef CONFIG_NUMA
+
+#include <asm/numa.h>
+
+static inline void *__va_numa(phys_addr_t paddr)
+{
+	return __va_offset(((paddr_to_nid(paddr) >> node_lowmem_sc_log2)
+				<< node_lowmem_sz_log2)
+			+ PA_TO_LOCAL_ADDR(paddr));
+}
+static inline phys_addr_t __pa_numa(unsigned long _vaddr)
+{
+	unsigned long vaddr = __pa_offset(_vaddr);
+	return (nid_to_paddr((vaddr >> node_lowmem_sz_log2)
+				<< node_lowmem_sc_log2)
+			+ (vaddr & (node_lowmem_size - 1)));
+}
+
+#define __va(x) __va_numa((phys_addr_t)(x))
+#define __pa(x) __pa_numa((unsigned long)(x))
+
+#else
+
+#define __va __va_offset
+#define __pa __pa_offset
+
+#endif
 
 #define virt_to_pfn(kaddr)	(__pa(kaddr) >> PAGE_SHIFT)
 #define pfn_to_virt(pfn)	__va((pfn) << PAGE_SHIFT)

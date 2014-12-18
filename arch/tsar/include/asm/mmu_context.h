@@ -34,7 +34,7 @@ static inline void switch_mm(struct mm_struct *prev,
 	 */
 	if (!cpumask_test_and_set_cpu(cpu, mm_cpumask(next)) || prev != next)
 	{
-		pr_debug("switch_mm: vaddr=0x%08lx, paddr=0x%08lx\n",
+		pr_debug("switch_mm: vaddr=%#08lx, paddr=%#010llx\n",
 				(unsigned long)next->pgd, __pa(next->pgd));
 		write_c2_ptpr(__pa(next->pgd) >> PTPR_SHIFT);
 	}
