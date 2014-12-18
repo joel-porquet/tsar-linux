@@ -227,8 +227,8 @@ static int vci_tty_poll_init(struct tty_driver *driver, int line, char *options)
 
 static int vci_tty_poll_get_char(struct tty_driver *driver, int line)
 {
-	struct vci_tty_data *tty = (struct vci_tty_data**)
-		driver->driver_state[line]
+	struct vci_tty_data **ttys = (struct vci_tty_data**)driver->driver_state;
+	struct vci_tty_data *tty = ttys[line];
 
 	if (!vci_tty_do_ischar(tty))
 		return NO_POLL_CHAR;
@@ -237,8 +237,8 @@ static int vci_tty_poll_get_char(struct tty_driver *driver, int line)
 
 static void vci_tty_poll_put_char(struct tty_driver *driver, int line, char ch)
 {
-	struct vci_tty_data *tty = (struct vci_tty_data**)
-		driver->driver_state[line]
+	struct vci_tty_data **ttys = (struct vci_tty_data**)driver->driver_state;
+	struct vci_tty_data *tty = ttys[line];
 
 	vci_tty_do_putchar(tty, ch);
 }
