@@ -24,16 +24,18 @@
 #include <asm/sections.h>
 #include <asm/setup.h>
 
-/* the reference kernel page table */
+/* the reference kernel page table, first object in bss section */
 pgd_t swapper_pg_dir[PTRS_PER_PGD] __section(.bss..swapper_pg_dir);
 
-/* always null filled page */
-unsigned long empty_zero_page[PAGE_SIZE / sizeof(unsigned long)]  __page_aligned_bss;
+/* always zero filled page */
+unsigned long empty_zero_page[PAGE_SIZE / sizeof(unsigned long)]
+__page_aligned_bss;
 
 /* make sure the vmalloc area will be 128MB minimum */
-static void * vmalloc_min __initdata =
+static void * __initdata vmalloc_min =
 	(void *)(VMALLOC_END - SZ_128M - VMALLOC_OFFSET);
-static phys_addr_t lowmem_limit __initdata = 0;
+
+static unsigned long __initdata lowmem_limit = 0;
 
 #ifndef CONFIG_NEED_MULTIPLE_NODES
 void __init memory_setup_nodes(void)
@@ -51,10 +53,6 @@ static void __init memory_init(void)
 	init_mm.end_data   = (unsigned long) _edata;
 	init_mm.brk	   = (unsigned long) _end;
 
-#ifdef CONFIG_MEMBLOCK_DEBUG
-	/* debug the memblock API */
-	memblock_debug = 1;
-#endif
 
 	/* register the kernel text and data */
 	memblock_reserve(__pa(_stext), _end - _stext);
@@ -63,10 +61,8 @@ static void __init memory_init(void)
 	memblock_allow_resize();
 	memblock_dump_all();
 
-	/* determine the characteristics of lowmem and highmem areas */
+	/* minimum and maximum physical page numbers */
 	min_low_pfn = PFN_UP(memblock_start_of_DRAM());
-
-	/* maximum page frame number in the system */
 	max_pfn = PFN_DOWN(memblock_end_of_DRAM());
 
 	lowmem_limit = min((phys_addr_t)__pa(vmalloc_min - 1) + 1,
@@ -98,12 +94,11 @@ static void __init memory_init(void)
 
 static void __init prepare_page_table(void)
 {
-	/* This function is being very conservative. From what we know of the
-	 * reset sequence up to here, we'd just need to remove the (small)
-	 * identity mapping that was created at boot */
+	/* This function is quite conservative. From what the reset sequence
+	 * has done up to here, only the (small) identity mapping that was
+	 * created at boot should be removed. */
 
 	unsigned long vaddr;
-	phys_addr_t end;
 
 	/* clear the mapping up to PAGE_OFFSET: the goal is to remove the
 	 * identity mapping of the kernel image that was done in head.S, and
@@ -112,24 +107,17 @@ static void __init prepare_page_table(void)
 	for (vaddr = 0; vaddr < PAGE_OFFSET; vaddr += PMD_SIZE)
 		pmd_clear((pmd_t*)pgd_offset_kernel(vaddr));
 
-	/* I guess here that we assume end is aligned with the size of a
-	 * section, so we're not going to remove a possible legit mapping at the end of
-	 * the memory bank. Also we can assume, the kernel image is way smaller
-	 * than the first memory bank anyway */
-	end = memblock.memory.regions[0].base + memblock.memory.regions[0].size;
-	if (unlikely(end >= lowmem_limit))
-		end = lowmem_limit;
-
-	/* clear the mapping from the end of the first block of lowmem up to
-	 * the almost end of the VA space (except the last section mapping to
-	 * preserve the fixed ioremap area) */
-	for (vaddr = (unsigned long)__va(end);
+	/* clear the mapping from the end of the kernel up to the almost end of
+	 * the VA space (except the last section mapping to preserve the fixed
+	 * ioremap area) */
+	for (vaddr = ALIGN((unsigned long)_end, PMD_SIZE);
 			vaddr < (FIXADDR_START & PMD_MASK);
 			vaddr += PMD_SIZE)
 		pmd_clear((pmd_t*)pgd_offset_kernel(vaddr));
 }
 
-static void __init map_pmd_section(pgd_t *pgd, unsigned long vaddr, phys_addr_t paddr)
+static void __init map_pmd_section(pgd_t *pgd, unsigned long vaddr,
+		phys_addr_t paddr)
 {
 	pmd_t *pmd = pmd_offset((pud_t*)pgd, vaddr);
 
@@ -288,9 +276,7 @@ void __init paging_init(void)
 	 * the boundaries of low and high memory */
 	memory_init();
 
-	/* prepare page table:
-	 * - clean up to PAGE_OFFSET
-	 * - and from the end of the first memory bank up to VMALLOC_START */
+	/* cleanup reference page table */
 	prepare_page_table();
 
 	/* map all the lowmem memory banks
@@ -300,7 +286,7 @@ void __init paging_init(void)
 	 */
 	map_lowmem();
 
-	/* associate memory blocks with corresponding nodes */
+	/* finish configuring nodes */
 	memory_setup_nodes();
 
 	/* compute node distances */
@@ -346,13 +332,8 @@ void __init mem_init(void)
 	BUG_ON(!mem_map);
 #endif
 
-	/* no need to clear out the zero-page, since we allocated it in the bss
-	 * section */
-
-	/* this will put all low memory onto the freelists */
-	free_all_bootmem();
-
-	/* free high memory */
+	/* release memory to the buddy allocator */
+	free_lowmem();
 	free_highmem();
 
 	mem_init_print_info(NULL);
