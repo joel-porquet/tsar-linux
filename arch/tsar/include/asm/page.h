@@ -63,16 +63,13 @@ typedef struct page *pgtable_t;
 
 static inline void *__va_numa(phys_addr_t paddr)
 {
-	return __va_offset(((paddr_to_nid(paddr) >> node_lowmem_sc_log2)
-				<< node_lowmem_sz_log2)
-			+ PA_TO_LOCAL_ADDR(paddr));
+	return NID_TO_LOWMEM_VADDR(paddr_to_nid(paddr))
+		+ PA_TO_LOCAL_ADDR(paddr);
 }
-static inline phys_addr_t __pa_numa(unsigned long _vaddr)
+static inline phys_addr_t __pa_numa(unsigned long vaddr)
 {
-	unsigned long vaddr = __pa_offset(_vaddr);
-	return (nid_to_paddr((vaddr >> node_lowmem_sz_log2)
-				<< node_lowmem_sc_log2)
-			+ (vaddr & (node_lowmem_size - 1)));
+	return nid_to_paddr(LOWMEM_VADDR_TO_NID(vaddr))
+		+ (vaddr & node_lowmem_sz_mask);
 }
 
 #define __va(x) __va_numa((phys_addr_t)(x))

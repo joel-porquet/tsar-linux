@@ -11,13 +11,18 @@ extern unsigned char tsar_ywidth;
 extern unsigned char tsar_xwidth;
 
 /* lowmem mapping */
-extern unsigned long node_lowmem_size;
-extern unsigned char node_lowmem_scale;
-
 extern unsigned char node_lowmem_sz_log2;
 extern unsigned char node_lowmem_sc_log2;
 
-#define NUMA_HIGHMEM_NODE(nid) !!((nid) & (node_lowmem_scale - 1))
+extern unsigned long node_lowmem_sz_mask;
+extern unsigned char node_lowmem_sc_mask;
+
+#define NUMA_HIGHMEM_NODE(nid) !!((nid) & node_lowmem_sc_mask)
+
+#define NID_TO_LOWMEM_VADDR(nid)	\
+	__va_offset(((nid) >> node_lowmem_sc_log2) << node_lowmem_sz_log2)
+#define LOWMEM_VADDR_TO_NID(vaddr)	\
+	((__pa_offset(vaddr) >> node_lowmem_sz_log2) << node_lowmem_sc_log2)
 
 /*
  * 40-bit physical addresses are structured as:

@@ -23,11 +23,11 @@ unsigned char numa_distance[MAX_NUMNODES][MAX_NUMNODES];
 unsigned char tsar_ywidth;
 unsigned char tsar_xwidth;
 
-unsigned long node_lowmem_size;
-unsigned char node_lowmem_scale;
-
 unsigned char node_lowmem_sz_log2;
 unsigned char node_lowmem_sc_log2;
+
+unsigned long node_lowmem_sz_mask;
+unsigned char node_lowmem_sc_mask;
 
 void *__init early_memory_setup_nodes(unsigned long lowmem_limit)
 {
@@ -35,6 +35,8 @@ void *__init early_memory_setup_nodes(unsigned long lowmem_limit)
 	phys_addr_t memblock_size = 0;
 	int i, nid;
 	unsigned long start_pfn, end_pfn;
+
+	unsigned long node_lowmem_size;
 
 	/* deduce the size of the grid from the last memblock */
 	/* warning: in LETI system, the node IO is not part of this grid */
@@ -97,8 +99,8 @@ void *__init early_memory_setup_nodes(unsigned long lowmem_limit)
 
 	/* by default we assume the amount of physical memory can entirely fit
 	 * in lowmem: in this case we stack all the nodes in lowmem */
-	node_lowmem_scale = 1;
-	node_lowmem_size = memblock_size;
+	node_lowmem_sc_log2 = 0;
+	node_lowmem_sz_log2 = ilog2(memblock_size);
 
 	if (memblock_phys_mem_size() > lowmem_limit) {
 		/* minimum size we want to map in lowmem for each node (at
@@ -112,21 +114,22 @@ void *__init early_memory_setup_nodes(unsigned long lowmem_limit)
 			/* we reduce the amount of lowmem mappable memory in
 			 * each node until it fits */
 			do {
-				node_lowmem_size >>= 1;
-			} while ((num_online_nodes() * node_lowmem_size) >
+				node_lowmem_sz_log2 -= 1;
+			} while ((num_online_nodes() << node_lowmem_sz_log2) >
 					lowmem_limit);
 		} else {
 			/* we reduce the number of lowmem mappable nodes until
 			 * it fits */
 			do {
-				node_lowmem_scale <<= 1;
-			} while (((num_online_nodes() / node_lowmem_scale) *
+				node_lowmem_sc_log2 += 1;
+			} while (((num_online_nodes() >> node_lowmem_sc_log2) *
 						min_node_size) > lowmem_limit);
 		}
 	}
 
-	node_lowmem_sz_log2 = ilog2(node_lowmem_size);
-	node_lowmem_sc_log2 = ilog2(node_lowmem_scale);
+	node_lowmem_size = (1 << node_lowmem_sz_log2);
+	node_lowmem_sz_mask = node_lowmem_size - 1;
+	node_lowmem_sc_mask = (1 << node_lowmem_sc_log2) - 1;
 
 	/* set the highmem as being reserved memory, in order to distinguish it
 	 * from lowmem */
@@ -147,8 +150,7 @@ void *__init early_memory_setup_nodes(unsigned long lowmem_limit)
 	max_low_pfn = PFN_DOWN(node_lowmem_size);
 
 	/* the highmem starts after the lowmem mapping of N/scale nodes */
-	return __va_offset(((num_online_nodes() >> node_lowmem_sc_log2) <<
-				node_lowmem_sz_log2));
+	return NID_TO_LOWMEM_VADDR(num_online_nodes());
 }
 
 static void __init alloc_data_nodes(void)
