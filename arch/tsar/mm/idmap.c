@@ -92,5 +92,6 @@ static int __init init_static_idmap(void)
 	return 0;
 }
 
-/* make our function be called right before initializing SMP */
+/* make our function be called right before initializing SMP
+ * (do_pre_smp_initcalls()) */
 early_initcall(init_static_idmap);
