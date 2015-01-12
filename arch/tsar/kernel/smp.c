@@ -20,6 +20,7 @@
 #include <linux/smp.h>
 #include <linux/topology.h>
 
+#include <asm/idmap.h>
 #include <asm/mmu_context.h>
 #include <asm/numa.h>
 #include <asm/smp_map.h>
@@ -368,8 +369,9 @@ void __init smp_prepare_cpus(unsigned int max_cpus)
  * Boot the specified secondary cpu
  */
 
-volatile unsigned long secondary_cpu_boot __cacheline_aligned = INVALID_HWCPUID;
-volatile unsigned long secondary_cpu_gp __cacheline_aligned;
+volatile unsigned long secondary_cpu_boot = INVALID_HWCPUID;
+volatile unsigned long secondary_cpu_idmap;
+volatile unsigned long secondary_cpu_gp;
 
 #ifdef CONFIG_SMP_IPI_BOOT
 extern void secondary_kernel_entry(void);
@@ -380,8 +382,11 @@ int __cpu_up(unsigned int cpu, struct task_struct *idle)
 	int ret = 0;
 	unsigned long timeout;
 
-	/* setup the secondary_cpu_gp to tell the cpu where to find its global
-	 * pointer (i.e. its idle thread_info structure) */
+	/* give the physical address of the idmap page table to the secondary
+	 * cpu */
+	secondary_cpu_idmap = __pa(idmap_pg_dir) >> PTPR_SHIFT;
+	/* inform the secondary cpu where to find its global pointer (i.e. its
+	 * idle thread_info structure) */
 	secondary_cpu_gp = (unsigned long)task_thread_info(idle);
 	/* unlock cpu from spin wait and make it boot */
 	secondary_cpu_boot = cpu_logical_map(cpu);
@@ -411,6 +416,7 @@ int __cpu_up(unsigned int cpu, struct task_struct *idle)
 
 	/* reset the secondary data */
 	secondary_cpu_boot = INVALID_HWCPUID;
+	secondary_cpu_idmap = 0;
 	secondary_cpu_gp = 0;
 
 	return ret;

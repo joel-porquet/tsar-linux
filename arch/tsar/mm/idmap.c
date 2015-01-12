@@ -7,28 +7,22 @@
  *  Joël Porquet <joel.porquet@lip6.fr>
  */
 
+#include <asm/idmap.h>
 #include <asm/pgalloc.h>
 #include <asm/pgtable.h>
 
 /* heavily inspired by ARM support */
 
 /*
- * The idea here is to build a page table for booting non-boot cpus. Such a
- * page table, called idmap_pg_dir, is the exact copy of the swapper_pg_dir
- * page table to which we add some identity mapping (for the switch from PA to
- * VA). As soon as the non-boot cpus are booted though, they quickly switch to
- * the regular swapper_pg_dir and discard idmap_pg_dir.
+ * The idea here is to build a idmap page table for booting non-boot cpus. Such
+ * a page table is the exact copy of the swapper_pg_dir page table to which we
+ * add some identity mapping (for the switch from PA to VA). As soon as the
+ * non-boot cpus are booted though, they normally quickly switch to the regular
+ * swapper_pg_dir and discard the idmap page table.
  */
-
 pgd_t *idmap_pg_dir;
 
-/* idmap_pg_dir_phys is 32-bit long and not 40-bit long as it may appear it
- * should be, because we store only the 27 MSB of the physical address:
- * idmap_pg_dir_phys = __pa(idmap_pg_dir_phys)[39:13]. This value can then be
- * directly used as a PTPR for slave processors */
-unsigned long idmap_pg_dir_phys;
-
-static void idmap_set_pmd(pgd_t *pgd, unsigned long addr)
+static void __init idmap_set_pmd(pgd_t *pgd, unsigned long addr)
 {
 	pmd_t *pmd = pmd_offset((pud_t*)pgd, addr);
 
@@ -37,7 +31,7 @@ static void idmap_set_pmd(pgd_t *pgd, unsigned long addr)
 	set_pmd(pmd, __pmd(addr >> PMD_SHIFT | pgprot_val(PMD_SECT)));
 }
 
-static void identity_mapping_add(pgd_t *pgd, const char *text_start,
+static void __init identity_mapping_add(pgd_t *pgd, const char *text_start,
 		const char *text_end)
 {
 	phys_addr_t addr, end;
@@ -67,19 +61,12 @@ static void identity_mapping_add(pgd_t *pgd, const char *text_start,
 
 extern char __idmap_text_start[], __idmap_text_end[];
 
-static int __init init_static_idmap(void)
+static int __init create_idmap(void)
 {
 	/* copy swapper_pg_dir */
 	idmap_pg_dir = pgd_alloc(&init_mm);
-
 	if (!idmap_pg_dir)
 		return -ENOMEM;
-
-	/* we need a physical address for non-boot cpus.
-	 * the address is already right shifted so it can be contained in a
-	 * 32-bit word (only the 27 LSB are significant out of the 40-bit
-	 * physical address) */
-	idmap_pg_dir_phys = __pa(idmap_pg_dir) >> PTPR_SHIFT;
 
 	/* add some identity mapping to cover the function that switches from
 	 * PA to VA (see kernel/head.S) */
@@ -92,6 +79,6 @@ static int __init init_static_idmap(void)
 	return 0;
 }
 
-/* make our function be called right before initializing SMP
+/* make the create function be called right before initializing SMP
  * (do_pre_smp_initcalls()) */
-early_initcall(init_static_idmap);
+early_initcall(create_idmap);
