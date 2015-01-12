@@ -12,8 +12,12 @@
 #include <linux/mmzone.h>
 #include <linux/of.h>
 #include <linux/of_address.h>
+#include <linux/slab.h>
 
 #include <asm/numa.h>
+#include <asm/page.h>
+#include <asm/pgalloc.h>
+#include <asm/pgtable.h>
 #include <asm/sections.h>
 
 struct pglist_data *node_data[MAX_NUMNODES] __read_mostly;
@@ -211,6 +215,118 @@ static void __init init_node_distance_table(void)
 	}
 }
 
+#ifdef CONFIG_KTEXT_REPLICATION
+static phys_addr_t node_ktext_replication[MAX_NUMNODES];
+static unsigned char node_ktext_sc_log2;
+static unsigned char node_ktext_count;
+
+static void __init init_ktext_replication(void)
+{
+	phys_addr_t ktext_start;
+	phys_addr_t ktext_size;
+	phys_addr_t ktext_replicat;
+
+	unsigned long max_lowmem_size;
+	unsigned char num_lowmem_nodes;
+
+	unsigned char node_ktext_sc_mask;
+
+	unsigned int nid;
+
+	/* round values in big pages */
+	ktext_start = round_down(__pa(_stext), PMD_SIZE);
+	ktext_size = round_up(__pa(_etext) - ktext_start, PMD_SIZE);
+
+	/* the maximum size we are willing to allocate for ktext replication:
+	 * 6.25% of the total lowmem */
+	max_lowmem_size = (unsigned long)NID_TO_LOWMEM_VADDR(num_online_nodes())
+		>> 4;
+
+	node_ktext_sc_log2 = 0;
+	num_lowmem_nodes = num_online_nodes() >> node_lowmem_sc_log2;
+
+	while (((num_lowmem_nodes >> node_ktext_sc_log2) * ktext_size) >
+			max_lowmem_size) {
+		/* we reduce the number of nodes which will contain ktext
+		 * replication until it fits */
+		node_ktext_sc_log2 += 1;
+	}
+
+	node_ktext_sc_mask = (1 << node_ktext_sc_log2) - 1;
+
+#define NUMA_KTEXT_NODE(nid) !((nid) & node_ktext_sc_mask)
+
+	/* by default the first replicate is the original copy */
+	ktext_replicat = ktext_start;
+	node_ktext_count = 1;
+
+	/* allocate ktext replication and make node associations */
+	for_each_online_node(nid) {
+		if (nid && NUMA_KTEXT_NODE(nid)) {
+			node_ktext_count++;
+			/* replicate the ktext in this node (except for the
+			 * boot node) */
+			ktext_replicat = memblock_alloc_nid(ktext_size,
+					PMD_SIZE, nid);
+			/* memcopy the kernel */
+			memcpy(__va(ktext_replicat), __va(ktext_start),
+					ktext_size);
+		}
+		node_ktext_replication[nid] = ktext_replicat;
+	}
+
+	pr_info("Kernel text and rodata are replicated %d times\n",
+			node_ktext_count);
+}
+
+static void numa_ktext_patch_pgd(pgd_t *pgd, unsigned int nid)
+{
+	unsigned char count = 0;
+	unsigned long vaddr = (unsigned long)_stext & PMD_MASK;
+
+	/* scan the kernel mapping */
+	for (; vaddr < ALIGN((unsigned long)_etext, PMD_SIZE);
+			vaddr += PMD_SIZE, count++) {
+		/* get current mapping */
+		pmd_t *pmd = (pmd_t*)(pgd + pgd_index(vaddr));
+		unsigned long pmd_val = pmd_val(*pmd);
+
+		/* mask out current PPN */
+		pmd_val &= _PAGE_PPN1_MASK;
+
+		/* inject the new PPN */
+		pmd_val |= ((node_ktext_replication[nid] >> PMD_SHIFT) + count);
+
+		/* setup new mapping */
+		set_pmd(pmd, __pmd(pmd_val));
+	}
+}
+
+static pgd_t **numa_ktext_pgd;
+
+pgd_t *numa_ktext_get_pgd(unsigned int nid)
+{
+	unsigned char ktext_nid = NID_TO_KTEXT_NID(nid);
+
+	if (!numa_ktext_pgd) {
+		/* first time we call this function, alloc the array of pgd */
+		numa_ktext_pgd = kzalloc(node_ktext_count * sizeof(pgd_t*),
+				GFP_KERNEL);
+		numa_ktext_pgd[0] = swapper_pg_dir;
+	}
+
+	if (!numa_ktext_pgd[ktext_nid]) {
+		/* copy the new pgd from init_mm */
+		numa_ktext_pgd[ktext_nid] = pgd_alloc(&init_mm);
+		/* but patch the kernel text and rodata mapping */
+		numa_ktext_patch_pgd(numa_ktext_pgd[ktext_nid], nid);
+	}
+
+	return numa_ktext_pgd[ktext_nid];
+}
+
+#endif
+
 void __init memory_setup_nodes(void)
 {
 	/* alloc pgdat structure for each node */
@@ -218,6 +334,11 @@ void __init memory_setup_nodes(void)
 
 	/* compute node distances */
 	init_node_distance_table();
+
+#ifdef CONFIG_KTEXT_REPLICATION
+	/* kernel text and rodata replication */
+	init_ktext_replication();
+#endif
 }
 
 int of_node_to_nid(struct device_node *device)

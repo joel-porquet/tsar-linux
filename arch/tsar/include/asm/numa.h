@@ -85,6 +85,17 @@ void __init cpu_setup_nodes(void);
 extern unsigned char cpu_node_map[NR_CPUS];
 extern cpumask_t node_cpumask_map[MAX_NUMNODES];
 
+#ifdef CONFIG_KTEXT_REPLICATION
+/*
+ * ktext replication
+ */
+pgd_t *numa_ktext_get_pgd(unsigned int nid);
+
+#define NID_TO_KTEXT_NID(nid)	(nid >> node_ktext_sc_log2)
+#else
+#define NID_TO_KTEXT_NID(nid)	(0)
+#endif
+
 /*
  * print formatting
  */

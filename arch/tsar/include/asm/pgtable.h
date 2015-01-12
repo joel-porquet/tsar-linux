@@ -79,6 +79,9 @@ typedef unsigned long pteval_t;
 
 #define _PAGE_PTD_MASK		(~(_PAGE_PRESENT | _PAGE_PTD))
 
+/* PPN mask for PTE1 */
+#define _PAGE_PPN1_MASK		(~((_AT(pteval_t, 1) << 20) - 1))
+
 /* software flags */
 #define _PAGE_BIT_ACCESSED	21
 #define _PAGE_ACCESSED		(_AT(pteval_t, 1) << _PAGE_BIT_ACCESSED)

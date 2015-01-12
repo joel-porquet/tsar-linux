@@ -187,10 +187,15 @@ asmlinkage void __init secondary_start_kernel(void)
 	unsigned int cpu = smp_processor_id();
 
 	/*
-	 * Switch away from the idmap page table and use the regular
-	 * swapper_pg_dir instead. Update proper mm_context.
+	 * Switch away from the idmap page table.
 	 */
+#ifdef CONFIG_KTEXT_REPLICATION
+	/* use one of the replicats */
+	cpu_switch_mm(numa_ktext_get_pgd(cpu_to_node(cpu)));
+#else
+	/* use default swapper_pg_dir */
 	activate_mm(NULL, mm);
+#endif
 	atomic_inc(&mm->mm_count);
 	current->active_mm = mm;
 	cpumask_set_cpu(cpu, mm_cpumask(mm));

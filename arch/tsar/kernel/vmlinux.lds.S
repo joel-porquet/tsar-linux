@@ -7,9 +7,11 @@
  *  Joël Porquet <joel.porquet@lip6.fr>
  */
 
-#include <asm/thread_info.h>
-#include <asm/page.h>
+#include <generated/asm-offsets.h>
+
 #include <asm/cache.h>
+#include <asm/page.h>
+#include <asm/thread_info.h>
 
 #define LOAD_OFFSET PAGE_OFFSET
 
@@ -72,6 +74,9 @@ SECTIONS
 	 */
 	_sdata = .;
 	RO_DATA_SECTION(PAGE_SIZE)
+#ifdef CONFIG_KTEXT_REPLICATION
+	. = ALIGN(PGDIR_SIZE);
+#endif
 	RW_DATA_SECTION(L1_CACHE_BYTES, PAGE_SIZE, THREAD_SIZE)
 
 	/* TODO: do we need the following? */

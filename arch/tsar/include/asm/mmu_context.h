@@ -19,6 +19,12 @@ static inline void enter_lazy_tlb(struct mm_struct *mm, struct task_struct *tsk)
 
 #define destroy_context(mm)		do { } while (0)
 
+static inline void cpu_switch_mm(pgd_t *pgd)
+{
+	pr_debug("switch_mm: vaddr=%#08lx, paddr=%#010llx\n",
+			(unsigned long)pgd, __pa(pgd));
+	write_c2_ptpr(__pa(pgd) >> PTPR_SHIFT);
+}
 
 static inline void switch_mm(struct mm_struct *prev,
 			struct mm_struct *next,
@@ -33,11 +39,7 @@ static inline void switch_mm(struct mm_struct *prev,
 	 * - or if the new context was not currently running on this cpu
 	 */
 	if (!cpumask_test_and_set_cpu(cpu, mm_cpumask(next)) || prev != next)
-	{
-		pr_debug("switch_mm: vaddr=%#08lx, paddr=%#010llx\n",
-				(unsigned long)next->pgd, __pa(next->pgd));
-		write_c2_ptpr(__pa(next->pgd) >> PTPR_SHIFT);
-	}
+		cpu_switch_mm(next->pgd);
 
 	/* XXX: should we clear 'prev' on the current cpu, as x86 does, to stop
 	 * sending flush IPIs? Do we even have flush IPIs? */
