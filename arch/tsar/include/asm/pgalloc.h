@@ -21,13 +21,14 @@
 /*
  * alloc and free pgd
  */
-static inline pgd_t *pgd_alloc(struct mm_struct *mm)
+static inline pgd_t *__pgd_alloc_knid(int knid)
 {
 	pgd_t *ret;
 
 	/* get two pages */
 	/* I've been said on #mipslinux that the result address should be
 	 * aligned on the number of allocated pages (ie 8KiB here) */
+	/* XXX: maybe it'd be interesting to try alloc_pages_node() */
 	ret = (pgd_t *) __get_free_pages(PGALLOC_GFP, PGD_ORDER);
 
 	/* check we got enough memory and the area is 8KiB aligned */
@@ -40,7 +41,23 @@ static inline pgd_t *pgd_alloc(struct mm_struct *mm)
 	memcpy(ret + USER_PTRS_PER_PGD, swapper_pg_dir + USER_PTRS_PER_PGD,
 			(PTRS_PER_PGD - USER_PTRS_PER_PGD) * sizeof(pgd_t));
 
+#ifdef CONFIG_KTEXT_REPLICATION
+	/* patch the kernel text and rodata mapping */
+	numa_ktext_patch_pgd(ret, KTEXT_NID_TO_NID(knid));
+#endif
+
 	return ret;
+}
+
+static inline pgd_t *pgd_alloc(struct mm_struct *mm)
+{
+	static unsigned int knid = 0;
+
+#ifdef CONFIG_KTEXT_REPLICATION
+	knid = (knid + 1) % node_ktext_count;
+#endif
+
+	return __pgd_alloc_knid(knid);
 }
 
 static inline void pgd_free(struct mm_struct *mm, pgd_t *pgd)

@@ -217,8 +217,9 @@ static void __init init_node_distance_table(void)
 
 #ifdef CONFIG_KTEXT_REPLICATION
 static phys_addr_t node_ktext_replication[MAX_NUMNODES];
-static unsigned char node_ktext_sc_log2;
-static unsigned char node_ktext_count;
+
+unsigned char node_ktext_sc_log2;
+unsigned char node_ktext_count;
 
 static void __init init_ktext_replication(void)
 {
@@ -279,7 +280,7 @@ static void __init init_ktext_replication(void)
 			node_ktext_count);
 }
 
-static void numa_ktext_patch_pgd(pgd_t *pgd, unsigned int nid)
+void numa_ktext_patch_pgd(pgd_t *pgd, unsigned int nid)
 {
 	unsigned char count = 0;
 	unsigned long vaddr = (unsigned long)_stext & PMD_MASK;
@@ -316,10 +317,8 @@ pgd_t *numa_ktext_get_pgd(unsigned int nid)
 	}
 
 	if (!numa_ktext_pgd[ktext_nid]) {
-		/* copy the new pgd from init_mm */
-		numa_ktext_pgd[ktext_nid] = pgd_alloc(&init_mm);
-		/* but patch the kernel text and rodata mapping */
-		numa_ktext_patch_pgd(numa_ktext_pgd[ktext_nid], nid);
+		/* get a patched copy of swapper_pg_dir */
+		numa_ktext_pgd[ktext_nid] = __pgd_alloc_knid(ktext_nid);
 	}
 
 	return numa_ktext_pgd[ktext_nid];

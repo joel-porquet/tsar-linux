@@ -89,9 +89,14 @@ extern cpumask_t node_cpumask_map[MAX_NUMNODES];
 /*
  * ktext replication
  */
+extern unsigned char node_ktext_count;
+extern unsigned char node_ktext_sc_log2;
+
+void numa_ktext_patch_pgd(pgd_t *pgd, unsigned int nid);
 pgd_t *numa_ktext_get_pgd(unsigned int nid);
 
 #define NID_TO_KTEXT_NID(nid)	(nid >> node_ktext_sc_log2)
+#define KTEXT_NID_TO_NID(knid)	(knid << node_ktext_sc_log2)
 #else
 #define NID_TO_KTEXT_NID(nid)	(0)
 #endif
