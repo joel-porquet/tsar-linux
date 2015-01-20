@@ -83,7 +83,7 @@ static inline phys_addr_t __pa_numa(unsigned long vaddr)
 #endif
 
 #define virt_to_pfn(kaddr)	(__pa(kaddr) >> PAGE_SHIFT)
-#define pfn_to_virt(pfn)	__va((pfn) << PAGE_SHIFT)
+#define pfn_to_virt(pfn)	__va((phys_addr_t)(pfn) << PAGE_SHIFT)
 
 #define virt_to_page(addr)	pfn_to_page(virt_to_pfn(addr))
 #define page_to_virt(page)	pfn_to_virt(page_to_pfn(page))
