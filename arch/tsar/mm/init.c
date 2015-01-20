@@ -75,7 +75,7 @@ static void __init memory_init(void)
 	init_mm.brk	   = (unsigned long) _end;
 
 	/* reserve the kernel text and data */
-	memblock_reserve(__pa_offset((unsigned long)_stext), _end - _stext);
+	memblock_reserve(__pa_offset((unsigned long)_text), _end - _text);
 
 	/* minimum and maximum physical page numbers */
 	min_low_pfn = PFN_UP(memblock_start_of_DRAM());
