@@ -152,7 +152,7 @@ config USE_PERCPU_NUMA_NODE_ID
 	depends on NUMA
 
 config KTEXT_REPLICATION
-	def_bool y
+	bool "Enable replication of kernel code and rodata"
 	depends on NUMA
 
 config SMP_IPI_BOOT
