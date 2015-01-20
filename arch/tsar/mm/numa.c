@@ -143,10 +143,11 @@ void *__init early_memory_setup_nodes(unsigned long lowmem_limit)
 
 		if (NUMA_HIGHMEM_NODE(nid)) {
 			/* the whole bank is highmem */
-			memblock_reserve(start, end);
+			memblock_reserve(start, end - start);
 		} else if (PA_TO_LOCAL_ADDR(end) > node_lowmem_size) {
 			/* part of the bank is highmem */
-			memblock_reserve(start + node_lowmem_size, end);
+			start = ALIGN(start + node_lowmem_size, node_lowmem_size);
+			memblock_reserve(start, end - start);
 		}
 	}
 
