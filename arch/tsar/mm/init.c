@@ -332,7 +332,7 @@ static void __init free_highmem(void)
 			pfn = start_pfn;
 		} else if (PFN_TO_LOCAL_PFN(end_pfn) > max_low_pfn) {
 			/* part of the bank is highmem */
-			pfn = ALIGN(start_pfn, max_low_pfn);
+			pfn = ALIGN(start_pfn + max_low_pfn, max_low_pfn);
 		} else
 			continue;
 
