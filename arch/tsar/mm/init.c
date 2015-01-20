@@ -94,9 +94,9 @@ static void __init memory_init(void)
 	memblock_allow_resize();
 	memblock_dump_all();
 
-	pr_debug("%s: min_low_pfn: %#lx\n", __func__, min_low_pfn);
-	pr_debug("%s: max_low_pfn: %#lx\n", __func__, max_low_pfn);
-	pr_debug("%s: max_pfn: %#lx\n", __func__, max_pfn);
+	pr_debug("%s: min_low_pfn: %ld\n", __func__, min_low_pfn);
+	pr_debug("%s: max_low_pfn: %ld\n", __func__, max_low_pfn);
+	pr_debug("%s: max_pfn: %ld\n", __func__, max_pfn);
 }
 
 static void __init prepare_page_table(void)
@@ -336,6 +336,9 @@ static void __init free_highmem(void)
 		} else
 			continue;
 
+		pr_debug("On node %3d free highmemory range [%#llx - %#llx]\n",
+				nid, PFN_PHYS(pfn), PFN_PHYS(end_pfn) - 1);
+
 		for ( ; pfn < end_pfn; pfn++)
 			free_highmem_page(pfn_to_page(pfn));
 	}
@@ -345,12 +348,13 @@ static void __init free_highmem(void)
 static void __init free_lowmem(void)
 {
 	u64 i;
+	unsigned int nid;
 	phys_addr_t paddr, pend;
 
 	reset_all_zones_managed_pages();
 
 	/* lowmem has been put in free ranges */
-	for_each_free_mem_range(i, MAX_NUMNODES, &paddr, &pend, NULL) {
+	for_each_free_mem_range(i, MAX_NUMNODES, &paddr, &pend, &nid) {
 		unsigned long start_pfn = PFN_UP(paddr);
 		unsigned long end_pfn = PFN_DOWN(pend);
 		int order;
@@ -359,6 +363,9 @@ static void __init free_lowmem(void)
 		 * returns an invalid range... */
 		if (start_pfn >= end_pfn)
 			continue;
+
+		pr_debug("On node %3d free lowmem range [%#llx - %#llx]\n",
+				nid, PFN_PHYS(start_pfn), PFN_PHYS(end_pfn) - 1);
 
 		totalram_pages += end_pfn - start_pfn;
 

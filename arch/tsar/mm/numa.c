@@ -79,6 +79,9 @@ void *__init early_memory_setup_nodes(unsigned long lowmem_limit)
 		memblock_set_region_node(reg, nid);
 
 		node_set_online(nid);
+
+		pr_debug("Node %d of size %llu MB is online\n",
+				nid, memblock_size >> 20);
 	}
 
 	/* cap physical memory:
@@ -135,6 +138,11 @@ void *__init early_memory_setup_nodes(unsigned long lowmem_limit)
 	node_lowmem_sz_mask = node_lowmem_size - 1;
 	node_lowmem_sc_mask = (1 << node_lowmem_sc_log2) - 1;
 
+	pr_info("Limit low memory to %ld MB per node\n",
+			node_lowmem_size >> 20);
+	pr_info("Limit low memory to 1/%lu nodes\n",
+			(1UL << node_lowmem_sc_log2));
+
 	/* set the highmem as being reserved memory, in order to distinguish it
 	 * from lowmem */
 	for_each_mem_pfn_range(i, MAX_NUMNODES, &start_pfn, &end_pfn, &nid) {
@@ -144,15 +152,19 @@ void *__init early_memory_setup_nodes(unsigned long lowmem_limit)
 		if (NUMA_HIGHMEM_NODE(nid)) {
 			/* the whole bank is highmem */
 			memblock_reserve(start, end - start);
+			pr_debug("Node %d is purely highmem\n", nid);
 		} else if (PA_TO_LOCAL_ADDR(end) > node_lowmem_size) {
 			/* part of the bank is highmem */
 			start = ALIGN(start + node_lowmem_size, node_lowmem_size);
 			memblock_reserve(start, end - start);
+			pr_debug("Node %d is part highmem: [%#010llx-%#010llx]\n",
+					nid, start, end);
 		}
 	}
 
 	/* set max_low_pfn to what the first node can address */
 	max_low_pfn = PFN_DOWN(node_lowmem_size);
+	pr_debug("max_low_pfn = %lu\n", max_low_pfn);
 
 	/* the highmem starts after the lowmem mapping of N/scale nodes */
 	return NID_TO_LOWMEM_VADDR(num_online_nodes());
