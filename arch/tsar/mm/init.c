@@ -355,6 +355,11 @@ static void __init free_lowmem(void)
 		unsigned long end_pfn = PFN_DOWN(pend);
 		int order;
 
+		/* unfortunately, it is possible that for_each_free_mem_range()
+		 * returns an invalid range... */
+		if (start_pfn >= end_pfn)
+			continue;
+
 		totalram_pages += end_pfn - start_pfn;
 
 		while (start_pfn < end_pfn) {
