@@ -364,3 +364,57 @@ int of_node_to_nid(struct device_node *device)
 	/* deduce the numa node id from it */
 	return paddr_to_nid(res.start);
 }
+
+/*
+ * Setup per-cpu memory
+ */
+
+unsigned long __per_cpu_offset[NR_CPUS] __read_mostly;
+
+static void *__init pcpu_fc_alloc(unsigned int cpu, size_t size, size_t align)
+{
+	phys_addr_t ptr;
+	int node = early_cpu_to_node(cpu);
+
+	ptr = memblock_alloc_nid(size, align, NID_TO_LOWMEM_NID(node));
+	return __va(ptr);
+}
+
+static void __init pcpu_fc_free(void *ptr, size_t size)
+{
+	memblock_free(__pa(ptr), size);
+}
+
+static void __init pcpu_fc_populate_pte(unsigned long addr)
+{
+	pmd_t *pmd;
+	pte_t *pte;
+
+	/* check the address is part of the vmalloc area */
+	if (addr < VMALLOC_START || addr >= VMALLOC_END)
+		panic("PCPU add %#lx is outside of vmalloc range %#lx..%#lx\n",
+				addr, VMALLOC_START, VMALLOC_END);
+
+	pmd = pmd_offset(pud_offset(pgd_offset_kernel(addr), addr), addr);
+	if (!pmd_present(*pmd)) {
+		pte = __va(memblock_alloc(PAGE_SIZE, PAGE_SIZE));
+		memset(pte, 0, PAGE_SIZE);
+		pmd_populate_kernel(&init_mm, pmd, pte);
+	}
+}
+
+void __init setup_per_cpu_areas(void)
+{
+	unsigned long delta;
+	unsigned int cpu;
+	int rc;
+
+	rc = pcpu_page_first_chunk(0, pcpu_fc_alloc, pcpu_fc_free,
+			pcpu_fc_populate_pte);
+	if (rc < 0)
+		panic("Failed to initialized percpu area (err=%d)\n", rc);
+
+	delta = (unsigned long)pcpu_base_addr - (unsigned long)__per_cpu_start;
+	for_each_possible_cpu(cpu)
+		__per_cpu_offset[cpu] = delta + pcpu_unit_offsets[cpu];
+}

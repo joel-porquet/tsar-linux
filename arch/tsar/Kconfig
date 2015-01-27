@@ -57,6 +57,12 @@ config GENERIC_HWEIGHT
 config GENERIC_CALIBRATE_DELAY
 	def_bool y
 
+config HAVE_SETUP_PER_CPU_AREA
+	def_bool y
+
+config NEED_PER_CPU_PAGE_FIRST_CHUNK
+	def_bool y
+
 source "init/Kconfig"
 
 source "kernel/Kconfig.freezer"

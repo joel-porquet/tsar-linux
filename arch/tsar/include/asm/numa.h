@@ -18,6 +18,7 @@ extern unsigned long node_lowmem_sz_mask;
 extern unsigned char node_lowmem_sc_mask;
 
 #define NUMA_HIGHMEM_NODE(nid) !!((nid) & node_lowmem_sc_mask)
+#define NID_TO_LOWMEM_NID(nid) ((nid) & ~node_lowmem_sc_mask)
 
 #define NID_TO_LOWMEM_VADDR(nid)	\
 	__va_offset(((nid) >> node_lowmem_sc_log2) << node_lowmem_sz_log2)
@@ -84,6 +85,11 @@ void __init cpu_setup_nodes(void);
  */
 extern unsigned char cpu_node_map[NR_CPUS];
 extern cpumask_t node_cpumask_map[MAX_NUMNODES];
+
+static inline int early_cpu_to_node(int cpu)
+{
+	return cpu_node_map[cpu];
+}
 
 #ifdef CONFIG_KTEXT_REPLICATION
 /*
