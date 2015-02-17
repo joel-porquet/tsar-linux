@@ -77,8 +77,8 @@ static inline phys_addr_t __pa_numa(unsigned long vaddr)
 
 #else
 
-#define __va __va_offset
-#define __pa __pa_offset
+#define __va(x) __va_offset((phys_addr_t)(x))
+#define __pa(x) __pa_offset((unsigned long)(x))
 
 #endif
 
