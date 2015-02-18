@@ -11,6 +11,7 @@
 #include <linux/init.h>
 #include <linux/memblock.h>
 #include <linux/mm.h>
+#include <linux/of_fdt.h>
 #include <linux/sched.h>
 #include <linux/sizes.h>
 #include <linux/sort.h>
@@ -76,6 +77,10 @@ static void __init memory_init(void)
 
 	/* reserve the kernel text and data */
 	memblock_reserve(__pa_offset((unsigned long)_text), _end - _text);
+
+	/* reserve the device tree */
+	memblock_reserve(__pa_offset((unsigned long)initial_boot_params),
+			__be32_to_cpu(initial_boot_params->totalsize));
 
 	/* minimum and maximum physical page numbers */
 	min_low_pfn = PFN_UP(memblock_start_of_DRAM());

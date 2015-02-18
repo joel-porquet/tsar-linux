@@ -312,10 +312,12 @@ config MATH_EMULATION
 
 config PHYSICAL_START
 	hex "Physical address where the kernel is loaded"
-	default 0x1000
+	default 0x40000
 	help
-	  This gives the physical address where the kernel is loaded.
-	  Default is to leave one 4KiB free page.
+	  This gives the physical address where the kernel is loaded. Or in
+	  other terms, it is an offset from address 0.
+	  The default is to leave 256KiB of free space, which is enough to hold
+	  any DTB given by the preloader.
 
 source "kernel/Kconfig.hz"
 source "kernel/Kconfig.preempt"

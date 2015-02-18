@@ -71,14 +71,14 @@ ENTRY(kernel_entry)
 2:
 
 	/*
-	 * save bootup parameters before switching to VA
+	 * save bootup parameters
 	 */
 	sw	a0, pa(bootloader_param)
 
 	/*
 	 * initialize page global directory (swapper_pg_dir)
 	 *
-	 * map RAM from the start to the end of the kernel (_end):
+	 * map RAM from 0 to the end of the kernel (_end):
 	 * - identity mapping at VA 0x0 for just after enabling the MMU (the
 	 *   mapping will be destroy later)
 	 * - regular mapping at VA PAGE_OFFSET
