@@ -73,7 +73,10 @@ ENTRY(kernel_entry)
 	/*
 	 * save bootup parameters
 	 */
-	sw	a0, pa(bootloader_param)
+	sw	a0, pa(bootloader_param + 0x0)
+	sw	a1, pa(bootloader_param + 0x4)
+	sw	a2, pa(bootloader_param + 0x8)
+	sw	a3, pa(bootloader_param + 0xC)
 
 	/*
 	 * initialize page global directory (swapper_pg_dir)

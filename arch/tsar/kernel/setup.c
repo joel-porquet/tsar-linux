@@ -32,7 +32,7 @@ static struct resource kernel_bss_resource = { .name = "Kernel bss", };
 extern struct boot_param_header __dtb_start; /* defined by Linux */
 static void *dtb_start = &__dtb_start;
 
-unsigned long *bootloader_param;
+unsigned long *bootloader_param[4];
 
 unsigned long __cpu_logical_map[NR_CPUS] = {
 	/* all entries are invalid by default */
@@ -117,7 +117,7 @@ void __init setup_arch(char **cmdline_p)
 {
 #ifndef CONFIG_TSAR_BUILTIN_DTB
 	/* get the DTB via the bootloader */
-	dtb_start = __va_offset((void*)bootloader_param[1]);
+	dtb_start = __va_offset(bootloader_param[1]);
 #endif
 
 	/* early parsing of the device tree to setup the machine:
