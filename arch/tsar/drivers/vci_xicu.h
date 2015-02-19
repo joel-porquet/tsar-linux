@@ -49,7 +49,7 @@
 # define MAX_CPU_PER_CLUSTER 4
 #else
 /* otherwise no limit (actually 32) */
-# define MAX_CPU_PER_CLUSTER NR_CPUS
+# define MAX_CPU_PER_CLUSTER num_possible_cpus()
 #endif
 
 /* 32 possible sources of IRQ of each kind */
