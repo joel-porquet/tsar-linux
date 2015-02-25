@@ -46,8 +46,11 @@ struct vci_iopic {
 	void __iomem		*virt;		/* mapped address */
 	struct irq_domain	*irq_domain;	/* associated irq domain */
 
-	/* association between an IRQ source and a cpu (logical number) */
+	/* association between IRQ sources and cpus (logical number) */
 	int			irq_to_cpu[VCI_IOPIC_IRQ_COUNT];
+	/* associations between IRQ sources and WTIs */
+	char			irq_to_wti[VCI_IOPIC_IRQ_COUNT];
+	char			wti_to_irq[MAX_WTI_COUNT];
 };
 
 struct vci_iopic iopic;
@@ -61,12 +64,13 @@ struct vci_iopic iopic;
  */
 
 static inline void __vci_iopic_generic_mask_enable(struct irq_data *d,
-		bool mask, bool do_enable, bool enable)
+		bool unmask, bool do_enable, bool enable)
 {
 	struct vci_xicu *xicu;
 	irq_hw_number_t hwirq;
 	unsigned long cpu, hw_cpu, node_hw_cpu, outirq;
 	unsigned char cmd;
+	char wti_num;
 
 	union {
 		phys_addr_t paddr;
@@ -84,7 +88,6 @@ static inline void __vci_iopic_generic_mask_enable(struct irq_data *d,
 	compute_hwcpuid(cpu, &hw_cpu, &node_hw_cpu);
 
 	BUG_ON(!xicu);
-	BUG_ON(hwirq >= MAX_WTI_COUNT - MAX_CPU_PER_CLUSTER);
 	BUG_ON(hw_cpu == INVALID_HWCPUID);
 	BUG_ON(node_hw_cpu > MAX_CPU_PER_CLUSTER);
 
@@ -93,9 +96,11 @@ static inline void __vci_iopic_generic_mask_enable(struct irq_data *d,
 	pr_debug("Node%d: (un)mask IOIRQ %ld on " CPU_FMT_STR "\n",
 			xicu->node, hwirq, CPU_FMT_ARG(hw_cpu));
 
-	cmd = mask ? XICU_MSK_WTI_DISABLE : XICU_MSK_WTI_ENABLE;
+	cmd = unmask ? XICU_MSK_WTI_ENABLE : XICU_MSK_WTI_DISABLE;
 
-	writel(BIT(hwirq + MAX_CPU_PER_CLUSTER),
+	wti_num = iopic.irq_to_wti[hwirq];
+
+	writel(BIT(wti_num + MAX_CPU_PER_CLUSTER),
 			VCI_XICU_REG(xicu, cmd, outirq));
 
 	if (do_enable) {
@@ -105,7 +110,8 @@ static inline void __vci_iopic_generic_mask_enable(struct irq_data *d,
 			/* configure the redirection address and unmask when
 			 * enabling */
 			xicu_iopic_addr.paddr =
-				VCI_XICU_REG_PADDR(xicu, cmd, outirq);
+				VCI_XICU_REG_PADDR(xicu, XICU_WTI_REG, wti_num +
+						MAX_CPU_PER_CLUSTER);
 			writel(xicu_iopic_addr.low,
 					VCI_IOPIC_REG(hwirq, IOPIC_ADDRESS));
 			writel(xicu_iopic_addr.high,
@@ -122,22 +128,26 @@ static inline void __vci_iopic_generic_mask_enable(struct irq_data *d,
 
 static void vci_iopic_mask(struct irq_data *d)
 {
-	__vci_iopic_generic_mask_enable(d, true, false, false);
+	pr_debug("Mask IOIRQ");
+	__vci_iopic_generic_mask_enable(d, false, false, false);
 }
 
 static void vci_iopic_unmask(struct irq_data *d)
 {
-	__vci_iopic_generic_mask_enable(d, false, false, false);
+	pr_debug("Unmask IOIRQ");
+	__vci_iopic_generic_mask_enable(d, true, false, false);
 }
 
 static void vci_iopic_enable(struct irq_data *d)
 {
+	pr_debug("Enable IOIRQ");
 	__vci_iopic_generic_mask_enable(d, true, true, true);
 }
 
 static void vci_iopic_disable(struct irq_data *d)
 {
-	__vci_iopic_generic_mask_enable(d, false, true, true);
+	pr_debug("Disable IOIRQ");
+	__vci_iopic_generic_mask_enable(d, false, true, false);
 }
 
 static int vci_iopic_set_affinity(struct irq_data *d,
@@ -193,6 +203,20 @@ static int vci_iopic_map(struct irq_domain *d, unsigned int virq,
 	return 0;
 }
 
+static inline char __vci_iopic_allocate_wti(unsigned char *wti,
+		unsigned char max_wti)
+{
+	unsigned char wti_num;
+	for (wti_num = 0; wti_num < max_wti; wti_num++) {
+		if (iopic.wti_to_irq[wti_num] == VCI_IOPIC_IRQ_COUNT) {
+			pr_debug("Allocate WTI %d\n", wti_num);
+			*wti = wti_num;
+			return 0;
+		}
+	}
+	return 1;
+}
+
 static int vci_iopic_xlate(struct irq_domain *d, struct device_node *ctrlr,
 		const u32 *intspec, unsigned int intsize,
 		unsigned long *out_hwirq, unsigned int *out_type)
@@ -200,11 +224,23 @@ static int vci_iopic_xlate(struct irq_domain *d, struct device_node *ctrlr,
 	int ret;
 	ret = irq_domain_xlate_onecell(d, ctrlr, intspec, intsize,
 			out_hwirq, out_type);
+	if (!ret) {
+		unsigned char wti_num;
+		struct vci_xicu *xicu;
 
-	/* check the IRQ number fits the available number of WTI in XICUs */
-	if (!ret && (WARN_ON(*out_hwirq >= MAX_WTI_COUNT -
-					MAX_CPU_PER_CLUSTER)))
-		return -EINVAL;
+		/* it should not have been mapped already */
+		if (WARN_ON(iopic.irq_to_wti[*out_hwirq] != MAX_WTI_COUNT))
+			return -EINVAL;
+
+		/* try to allocate a wti */
+		xicu = vci_xicu[cpu_to_node(smp_processor_id())];
+		if (WARN_ON(__vci_iopic_allocate_wti(&wti_num, xicu->wti_count -
+						MAX_CPU_PER_CLUSTER)))
+			return -EINVAL;
+
+		iopic.irq_to_wti[*out_hwirq] = wti_num;
+		iopic.wti_to_irq[wti_num] = *out_hwirq;
+	}
 	return ret;
 }
 
@@ -218,9 +254,20 @@ static const struct irq_domain_ops vci_iopic_domain_ops = {
  */
 void vci_iopic_handle_irq(irq_hw_number_t wti, struct pt_regs *regs)
 {
+	irq_hw_number_t hwirq;
 	unsigned int virq;
+	struct vci_xicu *xicu;
 
-	virq = irq_find_mapping(iopic.irq_domain, wti);
+	hwirq = iopic.wti_to_irq[wti];
+
+	/* ack the IRQ in the corresponding XICU
+	 * the IOPIC should do it automatically, but it might be after we unmask
+	 * the XICU thus causing a race condition */
+	BUG_ON(iopic.irq_to_cpu[hwirq] != smp_processor_id());
+	xicu = vci_xicu[numa_node_id()];
+	readl(VCI_XICU_REG(xicu, XICU_WTI_REG, wti + MAX_CPU_PER_CLUSTER));
+
+	virq = irq_find_mapping(iopic.irq_domain, hwirq);
 	handle_IRQ(virq, regs);
 }
 
@@ -228,10 +275,15 @@ void __init vci_iopic_state_init(void)
 {
 	size_t i;
 
-	/* deactivate all IRQs and initialize irq_to_cpu association */
+	/* deactivate all IRQs, initialize irq_to_cpu association as well as
+	 * wti_to_irq association */
 	for (i = 0; i < VCI_IOPIC_IRQ_COUNT; i++) {
 		iopic.irq_to_cpu[i] = smp_processor_id();
 		writel(0, VCI_IOPIC_REG(i, IOPIC_MASK));
+
+		/* invalid value */
+		iopic.wti_to_irq[i] = VCI_IOPIC_IRQ_COUNT;
+		iopic.irq_to_wti[i] = MAX_WTI_COUNT;
 	}
 }
 
