@@ -56,7 +56,7 @@ static inline void __vci_xicu_hwi_generic_mask(struct irq_data *d, bool mask)
 	node_hw_cpu = xicu->hwi_to_hw_node_cpu[hwirq];
 
 	BUG_ON(hwirq >= xicu->hwi_count);
-	BUG_ON(node_hw_cpu > MAX_CPU_PER_CLUSTER);
+	BUG_ON(node_hw_cpu >= MAX_CPU_PER_CLUSTER);
 
 	outirq = VCI_XICU_CPUID_MAP(node_hw_cpu);
 
