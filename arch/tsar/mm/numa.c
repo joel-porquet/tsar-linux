@@ -356,13 +356,21 @@ void __init memory_setup_nodes(void)
 int of_node_to_nid(struct device_node *device)
 {
 	struct resource res;
+	int nid;
 
 	/* get the physical address of the device node */
+	/* and deduce the numa node id from it */
 	if (of_address_to_resource(device, 0, &res))
 		return NUMA_NO_NODE;
+	nid = paddr_to_nid(res.start);
 
-	/* deduce the numa node id from it */
-	return paddr_to_nid(res.start);
+	/* if the resulting nid is outside of the memory mesh (typically in the
+	 * IO cluster on LETI systems), return that the node is none instead of
+	 * the real nid */
+	if (nid >= tsar_xwidth * tsar_ywidth)
+		return NUMA_NO_NODE;
+
+	return nid;
 }
 
 /*
