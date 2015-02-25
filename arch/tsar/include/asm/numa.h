@@ -57,9 +57,10 @@ static inline unsigned int paddr_to_nid(phys_addr_t paddr)
 
 	unsigned char nid = y * tsar_xwidth + x;
 
-	/* don't check the y coordinate to allow the IO node on LETI system
-	 * to get a node number from this function */
 	BUG_ON(x >= tsar_xwidth);
+	/* on LETI systems, the IO node has y == tsar_ywidth so do not bug on
+	 * that */
+	BUG_ON(y > tsar_ywidth);
 
 	return nid;
 }
