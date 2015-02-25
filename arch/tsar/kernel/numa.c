@@ -15,6 +15,8 @@
 unsigned char cpu_node_map[NR_CPUS];
 cpumask_t node_cpumask_map[MAX_NUMNODES];
 
+unsigned char tsar_cpu_per_node;
+
 void __init cpu_setup_nodes(void)
 {
 	int cpu;
@@ -24,6 +26,7 @@ void __init cpu_setup_nodes(void)
 
 		unsigned char x = HWCPUID_TO_CLUSTERID_X(hwcpuid);
 		unsigned char y = HWCPUID_TO_CLUSTERID_Y(hwcpuid);
+		unsigned char z = HWCPUID_TO_LOCAL_ID(hwcpuid) + 1;
 
 		unsigned char nid = y * tsar_xwidth + x;
 
@@ -35,6 +38,9 @@ void __init cpu_setup_nodes(void)
 
 		cpu_node_map[cpu] = nid;
 		cpumask_set_cpu(cpu, &node_cpumask_map[nid]);
+
+		if (z > tsar_cpu_per_node)
+			tsar_cpu_per_node = z;
 	}
 }
 

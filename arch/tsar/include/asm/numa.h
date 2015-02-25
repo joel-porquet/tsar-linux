@@ -10,6 +10,9 @@
 extern unsigned char tsar_ywidth;
 extern unsigned char tsar_xwidth;
 
+/* cpu per node */
+extern unsigned char tsar_cpu_per_node;
+
 /* lowmem mapping */
 extern unsigned char node_lowmem_sz_log2;
 extern unsigned char node_lowmem_sc_log2;
