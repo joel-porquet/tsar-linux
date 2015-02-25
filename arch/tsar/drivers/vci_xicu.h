@@ -147,7 +147,6 @@ struct vci_xicu {
 	unsigned int	ipi_irq;	/* IRQ number for IPI */
 
 	/* HWI */
-	size_t		hwi_count;	/* number of HWI IRQs */
 #ifdef CONFIG_SOCLIB_VCI_XICU_HWI
 	/* association between a hwi and a cluster-local cpu */
 	unsigned char	hwi_to_hw_node_cpu[MAX_HWI_COUNT];
@@ -157,6 +156,12 @@ struct vci_xicu {
 	unsigned long	clk_period;	/* clock period (cycles) */
 	unsigned long	clk_rate;	/* clock frequency */
 	unsigned int	timer_irq;	/* IRQ number for PTI */
+
+	/* properties */
+	size_t		irq_count;	/* number of output IRQs */
+	size_t		hwi_count;	/* number of HWI IRQs */
+	size_t		wti_count;	/* number of WTI IRQs */
+	size_t		pti_count;	/* number of PTI IRQs */
 };
 
 extern struct vci_xicu *vci_xicu[MAX_NUMNODES];

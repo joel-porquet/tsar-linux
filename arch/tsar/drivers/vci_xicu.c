@@ -506,14 +506,15 @@ int __init vci_xicu_init(struct device_node *of_node, struct device_node *parent
 #else
 	xicu->hwi_count = 0;
 #endif
-	BUG_ON(xicu->hwi_count >= MAX_HWI_COUNT);
+	xicu->wti_count = XICU_CONFIG_WTI_COUNT(xicu_config);
+	xicu->pti_count = XICU_CONFIG_PTI_COUNT(xicu_config);
+	xicu->irq_count = XICU_CONFIG_IRQ_COUNT(xicu_config);
 
 	/* configuration checking (IRQ_COUNT, WTI_COUNT and PTI_COUNT must
 	 * match the number of cpus per cluster) */
-	BUG_ON(XICU_CONFIG_IRQ_COUNT(xicu_config) <
-			VCI_XICU_CPUID_MAP(MAX_CPU_PER_CLUSTER));
-	BUG_ON(XICU_CONFIG_WTI_COUNT(xicu_config) < MAX_CPU_PER_CLUSTER);
-	BUG_ON(XICU_CONFIG_PTI_COUNT(xicu_config) < MAX_CPU_PER_CLUSTER);
+	BUG_ON(xicu->irq_count < VCI_XICU_CPUID_MAP(MAX_CPU_PER_CLUSTER));
+	BUG_ON(xicu->wti_count < MAX_CPU_PER_CLUSTER);
+	BUG_ON(xicu->pti_count < MAX_CPU_PER_CLUSTER);
 
 	/* add an irq domain for vci_xicu. Count 'hwi_count' and percpu IRQs as
 	 * IRQ sources. Give the xicu object as host_data. */
