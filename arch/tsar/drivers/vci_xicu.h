@@ -45,8 +45,8 @@
  */
 
 #ifdef CONFIG_TSAR_MULTI_CLUSTER
-/* 4 cpus per cluster when doing multi-cluster*/
-# define MAX_CPU_PER_CLUSTER 4
+/* determined during the boot */
+# define MAX_CPU_PER_CLUSTER tsar_cpu_per_node
 #else
 /* otherwise no limit (actually 32) */
 # define MAX_CPU_PER_CLUSTER num_possible_cpus()
